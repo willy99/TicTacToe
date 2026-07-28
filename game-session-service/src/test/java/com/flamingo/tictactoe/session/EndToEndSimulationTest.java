@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.TestPropertySource;
 
 /**
  * Genuine cross-service end-to-end test. Unlike {@code SessionControllerIntegrationTest},
@@ -26,6 +27,7 @@ import org.springframework.test.context.DynamicPropertySource;
  * across real HTTP calls between the two - exactly what happens in production.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@TestPropertySource(properties = "simulation.move-delay-ms=0")
 class EndToEndSimulationTest {
 
     private static ConfigurableApplicationContext engineContext;

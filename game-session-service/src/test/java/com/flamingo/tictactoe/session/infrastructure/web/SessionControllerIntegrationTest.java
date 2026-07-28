@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
@@ -33,6 +34,11 @@ import org.springframework.test.web.servlet.MockMvc;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+// No artificial pause between simulated moves - tests only care about
+// correctness, not pacing. Layered on top of application.yml rather than a
+// separate test application.yml, which would shadow the whole file instead
+// of overriding just this one property.
+@TestPropertySource(properties = "simulation.move-delay-ms=0")
 class SessionControllerIntegrationTest {
 
     @Autowired
