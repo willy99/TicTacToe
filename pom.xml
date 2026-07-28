@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.flamingo.tictactoe</groupId>
+    <artifactId>distributed-tic-tac-toe</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>Distributed Tic Tac Toe</name>
+    <description>Distributed Tic Tac Toe played automatically by microservices</description>
+
+    <modules>
+        <module>game-engine-service</module>
+        <module>game-session-service</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <!-- spring-boot-starter-parent sets this by default; since this project uses
+             its own parent pom instead, it must be set explicitly. Without it, javac
+             drops method parameter names from the bytecode, and Spring MVC can no
+             longer bind @PathVariable by reflection (it needs an explicit
+             @PathVariable("name") in that case). See GameController/SessionController
+             for the belt-and-suspenders explicit names as well. -->
+        <maven.compiler.parameters>true</maven.compiler.parameters>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <spring-boot.version>3.2.5</spring-boot.version>
+        <springdoc.version>2.5.0</springdoc.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring-boot.version}</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

@@ -1,0 +1,20 @@
+package com.flamingo.tictactoe.session.infrastructure.client;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestClient;
+
+/**
+ * Configures the {@link RestClient} used to talk to the Game Engine Service.
+ * The base URL is externalized so it can be pointed at a different host/port
+ * per environment without any code change.
+ */
+@Configuration
+public class RestClientConfig {
+
+    @Bean
+    public RestClient gameEngineRestClient(@Value("${game-engine.base-url}") String baseUrl) {
+        return RestClient.builder().baseUrl(baseUrl).build();
+    }
+}

@@ -1,0 +1,3 @@
+simulation:
+  # No artificial pause in tests - we only care about correctness, not pacing.
+  move-delay-ms: 0

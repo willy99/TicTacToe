@@ -1,0 +1,17 @@
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# Node / Vite
+ui/node_modules/
+ui/dist/
+
+# OS
+.DS_Store
