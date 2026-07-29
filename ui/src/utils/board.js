@@ -12,3 +12,35 @@ export function buildBoardFromMoves(moves, boardSize = DEFAULT_BOARD_SIZE) {
   }
   return board
 }
+
+// Finds which row, column, or diagonal is filled entirely with `winner`, so
+// the board can draw a strike-through line over it. Generalized to any
+// board size rather than assuming 3, same as the win check on the backend.
+export function findWinningLine(cells, winner) {
+  if (!winner) {
+    return null
+  }
+  const size = cells.length
+
+  for (let row = 0; row < size; row++) {
+    if (cells[row].every((cell) => cell === winner)) {
+      return { type: 'row', index: row }
+    }
+  }
+
+  for (let col = 0; col < size; col++) {
+    if (cells.every((row) => row[col] === winner)) {
+      return { type: 'col', index: col }
+    }
+  }
+
+  if (cells.every((row, i) => row[i] === winner)) {
+    return { type: 'diagonal' }
+  }
+
+  if (cells.every((row, i) => row[size - 1 - i] === winner)) {
+    return { type: 'anti-diagonal' }
+  }
+
+  return null
+}

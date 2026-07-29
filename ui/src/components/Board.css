@@ -48,3 +48,72 @@
     opacity: 1;
   }
 }
+
+/* Strike-through for the winning row/column/diagonal. Placed as an item in
+   the same CSS grid as the cells (see Board.jsx's winLineGridArea), spanning
+   exactly the cells it marks, so its position comes from the grid layout
+   itself rather than pixel offsets that would need to track --board-size. */
+.board__win-line {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.board__win-line-bar {
+  position: absolute;
+  border-radius: 999px;
+  animation: win-line-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+.board__win-line-bar--x {
+  background: var(--bark);
+}
+
+.board__win-line-bar--o {
+  background: var(--cinnamon);
+}
+
+.board__win-line-bar--row {
+  left: 6px;
+  right: 6px;
+  height: 6px;
+}
+
+.board__win-line-bar--col {
+  top: 6px;
+  bottom: 6px;
+  width: 6px;
+}
+
+.board__win-line-bar--diagonal,
+.board__win-line-bar--anti-diagonal {
+  width: 145%;
+  height: 6px;
+}
+
+.board__win-line-bar--diagonal {
+  rotate: 45deg;
+}
+
+.board__win-line-bar--anti-diagonal {
+  rotate: -45deg;
+}
+
+@keyframes win-line-in {
+  from {
+    scale: 0;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__cell:not(:empty),
+  .board__win-line-bar {
+    animation: none;
+  }
+}

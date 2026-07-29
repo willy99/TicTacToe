@@ -9,7 +9,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
 
-    <name>Distributed Tic Tac Toe</name>
+    <name>Tic Tac Toe</name>
     <description>Distributed Tic Tac Toe played automatically by microservices</description>
 
     <modules>

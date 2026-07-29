@@ -69,11 +69,7 @@ export default function App() {
 
   return (
     <main className="app">
-      <h1>Distributed Tic Tac Toe</h1>
-      <p className="app__subtitle">
-        Two automated players, coordinated by the Game Session Service, play against
-        each other through the Game Engine Service.
-      </p>
+      <h1>Tic Tac Toe</h1>
 
       <ErrorBanner message={error} onDismiss={() => setError('')} />
 
@@ -83,7 +79,7 @@ export default function App() {
 
       <section className="game">
         <div className="game__board-column">
-          <Board moves={moves} boardSize={session?.boardSize} />
+          <Board moves={moves} boardSize={session?.boardSize} winner={session?.winner} />
           <StatusPanel
             status={session?.status}
             winner={session?.winner}
