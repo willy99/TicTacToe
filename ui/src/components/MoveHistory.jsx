@@ -6,8 +6,14 @@ export default function MoveHistory({ moves }) {
   return (
     <ol className="move-history">
       {moves.map((move) => (
-        <li key={move.moveNumber}>
-          #{move.moveNumber}: {move.symbol} &rarr; ({move.row}, {move.col})
+        <li key={move.moveNumber} className="move-history__row">
+          <span className="move-history__index">#{move.moveNumber}</span>
+          <span className={`move-history__symbol move-history__symbol--${move.symbol.toLowerCase()}`}>
+            {move.symbol}
+          </span>
+          <span className="move-history__coords">
+            ({move.row}, {move.col})
+          </span>
         </li>
       ))}
     </ol>

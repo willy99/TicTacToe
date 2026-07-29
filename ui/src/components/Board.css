@@ -3,28 +3,35 @@
   display: grid;
   grid-template-columns: repeat(var(--board-size), 84px);
   grid-template-rows: repeat(var(--board-size), 84px);
-  gap: 6px;
+  gap: 8px;
   margin: 0 auto;
+  padding: 8px;
+  background: var(--line);
+  border-radius: 10px;
 }
 
 .board__cell {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #1e2430;
+  background: linear-gradient(160deg, var(--paper) 0%, var(--paper-deep) 100%);
   border-radius: 8px;
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #f5f5f5;
-  transition: background-color 0.2s ease, transform 0.15s ease;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -3px 6px rgba(91, 58, 41, 0.12);
+  font-family: 'IBM Plex Serif', Georgia, serif;
+  font-size: 2.3rem;
+  font-weight: 600;
+  color: var(--espresso);
+  transition: transform 0.15s ease;
 }
 
 .board__cell--x {
-  color: #5eb3ff;
+  color: var(--bark);
 }
 
 .board__cell--o {
-  color: #ff8a65;
+  color: var(--cinnamon);
 }
 
 .board__cell:not(:empty) {
