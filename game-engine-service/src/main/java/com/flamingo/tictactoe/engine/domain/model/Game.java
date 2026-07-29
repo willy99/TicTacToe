@@ -11,12 +11,25 @@ import java.util.Objects;
 public final class Game {
 
     private final String id;
-    private final Board board = new Board();
+    private final Board board;
     private GameStatus status = GameStatus.IN_PROGRESS;
     private Symbol winner;
 
+    /**
+     * Creates a classic 3x3 game. Equivalent to {@code new Game(id, Board.DEFAULT_SIZE)}.
+     */
     public Game(String id) {
+        this(id, Board.DEFAULT_SIZE);
+    }
+
+    /**
+     * Creates a game on a {@code boardSize x boardSize} board (must be at
+     * least 3). Winning still means filling an entire row, column, or
+     * diagonal - just scaled to the board's own size.
+     */
+    public Game(String id, int boardSize) {
         this.id = Objects.requireNonNull(id, "id must not be null");
+        this.board = new Board(boardSize);
     }
 
     /**

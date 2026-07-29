@@ -24,18 +24,18 @@ import org.springframework.web.client.RestClient;
 class GameEngineHttpClientTest {
 
     @Test
-    void initializeGameSendsAPutAndParsesTheResponse() {
+    void initializeGameSendsAPutWithTheBoardSizeAndParsesTheResponse() {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://game-engine");
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GameEngineHttpClient client = new GameEngineHttpClient(builder.build());
 
-        server.expect(requestTo("http://game-engine/games/g1"))
+        server.expect(requestTo("http://game-engine/games/g1?boardSize=3"))
                 .andExpect(method(HttpMethod.PUT))
                 .andRespond(withSuccess(
                         "{\"gameId\":\"g1\",\"board\":[[null,null,null],[null,null,null],[null,null,null]],\"status\":\"IN_PROGRESS\",\"winner\":null}",
                         MediaType.APPLICATION_JSON));
 
-        EngineGameState state = client.initializeGame("g1");
+        EngineGameState state = client.initializeGame("g1", 3);
 
         assertThat(state.status()).isEqualTo(SessionStatus.IN_PROGRESS);
         assertThat(state.winner()).isNull();
@@ -72,5 +72,23 @@ class GameEngineHttpClientTest {
 
         assertThatThrownBy(() -> client.submitMove("g1", Symbol.X, 0, 0))
                 .isInstanceOf(GameEngineCommunicationException.class);
+    }
+
+    @Test
+    void translatesAnUnrecognizedStatusIntoACommunicationExceptionInsteadOfPropagatingRaw() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://game-engine");
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GameEngineHttpClient client = new GameEngineHttpClient(builder.build());
+
+        // Simulates the two services having drifted out of sync: a status
+        // value the session service's SessionStatus enum doesn't recognize.
+        server.expect(requestTo("http://game-engine/games/g1/move"))
+                .andRespond(withSuccess(
+                        "{\"gameId\":\"g1\",\"board\":[[\"X\",null,null],[null,null,null],[null,null,null]],\"status\":\"UNKNOWN_STATUS\",\"winner\":null}",
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.submitMove("g1", Symbol.X, 0, 0))
+                .isInstanceOf(GameEngineCommunicationException.class);
+        server.verify();
     }
 }

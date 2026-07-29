@@ -7,5 +7,11 @@ import java.util.List;
  * out by the application layer so the mutable aggregate never leaks outside
  * the domain.
  */
-public record SessionSnapshot(String sessionId, SessionStatus status, Symbol winner, List<Move> moves) {
+public record SessionSnapshot(
+        String sessionId,
+        int boardSize,
+        SessionStatus status,
+        Symbol winner,
+        String failureReason,
+        List<Move> moves) {
 }

@@ -19,7 +19,13 @@ public class SessionMapper {
                 .toList();
 
         String winner = snapshot.winner() == null ? null : snapshot.winner().name();
-        return new SessionResponse(snapshot.sessionId(), snapshot.status().name(), winner, moves);
+        return new SessionResponse(
+                snapshot.sessionId(),
+                snapshot.boardSize(),
+                snapshot.status().name(),
+                winner,
+                snapshot.failureReason(),
+                moves);
     }
 
     private MoveDto toMoveDto(Move move) {

@@ -107,6 +107,26 @@ class GameControllerIntegrationTest {
     }
 
     @Test
+    void initializingWithAnExplicitBoardSizeCreatesABoardOfThatSize() throws Exception {
+        String gameId = "custom-size-flow";
+
+        mockMvc.perform(put("/games/{gameId}", gameId).param("boardSize", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.board.length()", is(5)))
+                .andExpect(jsonPath("$.board[0].length()", is(5)));
+    }
+
+    @Test
+    void rejectsAMoveOutsideTheGamesActualBoardSize() throws Exception {
+        String gameId = "out-of-bounds-flow";
+        mockMvc.perform(put("/games/{gameId}", gameId)).andExpect(status().isOk());
+
+        performMove(gameId, "X", 5, 0)
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title", is("Invalid Move")));
+    }
+
+    @Test
     void movingOnANonExistentGameReturns404() throws Exception {
         performMove("never-created", "X", 0, 0)
                 .andExpect(status().isNotFound())

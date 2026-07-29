@@ -11,16 +11,27 @@ import org.junit.jupiter.api.Test;
 class PositionTest {
 
     @Test
-    void acceptsCoordinatesWithinTheBoard() {
+    void acceptsAnyNonNegativeCoordinate() {
         Position position = new Position(1, 2);
 
         assertThat(position.row()).isEqualTo(1);
         assertThat(position.col()).isEqualTo(2);
     }
 
+    @Test
+    void acceptsCoordinatesBeyondAClassicThreeByThreeBoard() {
+        // Whether (10, 10) fits a given board is Board's concern (it depends
+        // on that board's configured size), not Position's - see Board's
+        // "requireWithinBounds" and BoardTest's larger-board coverage.
+        Position position = new Position(10, 10);
+
+        assertThat(position.row()).isEqualTo(10);
+        assertThat(position.col()).isEqualTo(10);
+    }
+
     @ParameterizedTest
-    @CsvSource({"-1,0", "0,-1", "3,0", "0,3", "10,10"})
-    void rejectsCoordinatesOutsideTheBoard(int row, int col) {
+    @CsvSource({"-1,0", "0,-1", "-1,-1"})
+    void rejectsNegativeCoordinates(int row, int col) {
         assertThatThrownBy(() -> new Position(row, col))
                 .isInstanceOf(InvalidMoveException.class);
     }

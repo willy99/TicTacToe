@@ -9,7 +9,7 @@ import com.flamingo.tictactoe.session.domain.model.Symbol;
  */
 public interface GameEngineClient {
 
-    EngineGameState initializeGame(String gameId);
+    EngineGameState initializeGame(String gameId, int boardSize);
 
     EngineGameState submitMove(String gameId, Symbol symbol, int row, int col);
 }

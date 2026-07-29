@@ -66,4 +66,25 @@ class GameTest {
         assertThatThrownBy(() -> game.applyMove(Symbol.O, new Position(2, 2)))
                 .isInstanceOf(GameAlreadyFinishedException.class);
     }
+
+    @Test
+    void supportsALargerConfiguredBoardSize() {
+        Game game = new Game("g1", 4);
+
+        game.applyMove(Symbol.X, new Position(0, 0));
+        game.applyMove(Symbol.O, new Position(1, 0));
+        game.applyMove(Symbol.X, new Position(0, 1));
+        game.applyMove(Symbol.O, new Position(1, 1));
+        game.applyMove(Symbol.X, new Position(0, 2));
+        game.applyMove(Symbol.O, new Position(1, 2));
+        // Three in a row is not a win on a 4x4 board - the game must still be in progress.
+        assertThat(game.toSnapshot().status()).isEqualTo(GameStatus.IN_PROGRESS);
+
+        game.applyMove(Symbol.X, new Position(0, 3)); // X completes all 4 cells of the top row
+
+        GameSnapshot snapshot = game.toSnapshot();
+        assertThat(snapshot.status()).isEqualTo(GameStatus.WIN);
+        assertThat(snapshot.winner()).isEqualTo(Symbol.X);
+        assertThat(snapshot.cells()).hasDimensions(4, 4);
+    }
 }

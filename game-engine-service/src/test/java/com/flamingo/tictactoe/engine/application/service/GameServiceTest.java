@@ -39,7 +39,7 @@ class GameServiceTest {
         when(gameRepository.findById("g1")).thenReturn(Optional.empty());
         when(gameRepository.save(any(Game.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        GameSnapshot snapshot = gameService.initializeGame("g1");
+        GameSnapshot snapshot = gameService.initializeGame("g1", 3);
 
         assertThat(snapshot.gameId()).isEqualTo("g1");
         assertThat(snapshot.status()).isEqualTo(GameStatus.IN_PROGRESS);
@@ -47,11 +47,21 @@ class GameServiceTest {
     }
 
     @Test
+    void initializeGameHonorsARequestedBoardSize() {
+        when(gameRepository.findById("g1")).thenReturn(Optional.empty());
+        when(gameRepository.save(any(Game.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GameSnapshot snapshot = gameService.initializeGame("g1", 5);
+
+        assertThat(snapshot.cells()).hasDimensions(5, 5);
+    }
+
+    @Test
     void initializeGameIsIdempotentForAnExistingGame() {
         Game existing = new Game("g1");
         when(gameRepository.findById("g1")).thenReturn(Optional.of(existing));
 
-        GameSnapshot snapshot = gameService.initializeGame("g1");
+        GameSnapshot snapshot = gameService.initializeGame("g1", 3);
 
         assertThat(snapshot.gameId()).isEqualTo("g1");
         verify(gameRepository, never()).save(any());

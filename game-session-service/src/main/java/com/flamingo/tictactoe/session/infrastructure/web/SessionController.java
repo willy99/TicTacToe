@@ -43,10 +43,15 @@ public class SessionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(sessionMapper.toResponse(snapshot));
     }
 
+    /**
+     * Kicks off the automated simulation and returns immediately - it does
+     * not wait for the game to finish. Poll {@code GET /sessions/{sessionId}}
+     * to observe progress and the eventual outcome.
+     */
     @PostMapping("/{sessionId}/simulate")
     public ResponseEntity<SessionResponse> simulate(@PathVariable("sessionId") String sessionId) {
         SessionSnapshot snapshot = simulateGameUseCase.simulate(sessionId);
-        return ResponseEntity.ok(sessionMapper.toResponse(snapshot));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(sessionMapper.toResponse(snapshot));
     }
 
     @GetMapping("/{sessionId}")

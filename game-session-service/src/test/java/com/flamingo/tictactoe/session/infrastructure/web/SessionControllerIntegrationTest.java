@@ -5,6 +5,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -15,13 +16,16 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.flamingo.tictactoe.session.application.port.out.EngineGameState;
 import com.flamingo.tictactoe.session.application.port.out.GameEngineClient;
+import com.flamingo.tictactoe.session.domain.exception.GameEngineCommunicationException;
 import com.flamingo.tictactoe.session.domain.model.SessionStatus;
 import com.flamingo.tictactoe.session.domain.model.Symbol;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -50,9 +54,26 @@ class SessionControllerIntegrationTest {
     @MockBean
     private GameEngineClient gameEngineClient;
 
+    // simulate() normally hands the game-playing loop to this executor and
+    // returns immediately - see SessionService. These tests care about the
+    // eventual outcome, not the async hand-off itself, so the executor is
+    // replaced with one that runs the task on the calling thread: the HTTP
+    // response then already reflects the finished game, same as before
+    // simulate() was made non-blocking.
+    @MockBean
+    private TaskExecutor simulationTaskExecutor;
+
+    @BeforeEach
+    void runSimulationsSynchronously() {
+        doAnswer(invocation -> {
+            invocation.getArgument(0, Runnable.class).run();
+            return null;
+        }).when(simulationTaskExecutor).execute(any());
+    }
+
     @Test
     void createSessionInitializesTheGameEngineAndReturnsANewSession() throws Exception {
-        when(gameEngineClient.initializeGame(anyString()))
+        when(gameEngineClient.initializeGame(anyString(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
 
         mockMvc.perform(post("/sessions"))
@@ -71,7 +92,7 @@ class SessionControllerIntegrationTest {
 
     @Test
     void simulateDrivesAFullGameToAWin() throws Exception {
-        when(gameEngineClient.initializeGame(anyString()))
+        when(gameEngineClient.initializeGame(anyString(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
         when(gameEngineClient.submitMove(anyString(), any(Symbol.class), anyInt(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null))
@@ -83,7 +104,7 @@ class SessionControllerIntegrationTest {
         String sessionId = createSession();
 
         mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId))
-                .andExpect(status().isOk())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.status", is("WIN")))
                 .andExpect(jsonPath("$.winner", is("X")))
                 .andExpect(jsonPath("$.moves.length()", is(5)));
@@ -95,7 +116,7 @@ class SessionControllerIntegrationTest {
 
     @Test
     void simulatingAgainAfterCompletionReturns409() throws Exception {
-        when(gameEngineClient.initializeGame(anyString()))
+        when(gameEngineClient.initializeGame(anyString(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
         when(gameEngineClient.submitMove(anyString(), any(Symbol.class), anyInt(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.DRAW, null))
@@ -110,7 +131,7 @@ class SessionControllerIntegrationTest {
 
         String sessionId = createSession();
 
-        mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId)).andExpect(status().isOk());
+        mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId)).andExpect(status().isAccepted());
 
         mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId))
                 .andExpect(status().isConflict())
@@ -118,18 +139,26 @@ class SessionControllerIntegrationTest {
     }
 
     @Test
-    void whenTheGameEngineIsUnreachableTheSessionServiceReturns502() throws Exception {
-        when(gameEngineClient.initializeGame(anyString()))
+    void whenTheGameEngineIsUnreachableTheSessionEndsUpFailed() throws Exception {
+        // The failure happens on the simulation executor, not on this
+        // request's own thread, so it can no longer surface as an HTTP error
+        // response for this call - only as a FAILED status once observed,
+        // here immediately since the executor is stubbed to run inline.
+        when(gameEngineClient.initializeGame(anyString(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
         when(gameEngineClient.submitMove(anyString(), any(Symbol.class), anyInt(), anyInt()))
-                .thenThrow(new com.flamingo.tictactoe.session.domain.exception.GameEngineCommunicationException(
-                        "Unable to reach the Game Engine Service", null));
+                .thenThrow(new GameEngineCommunicationException("Unable to reach the Game Engine Service", null));
 
         String sessionId = createSession();
 
         mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId))
-                .andExpect(status().isBadGateway())
-                .andExpect(jsonPath("$.title", is("Game Engine Communication Error")));
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.status", is("FAILED")))
+                .andExpect(jsonPath("$.failureReason", is("Unable to reach the Game Engine Service")));
+
+        mockMvc.perform(get("/sessions/{sessionId}", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("FAILED")));
     }
 
     private String createSession() throws Exception {

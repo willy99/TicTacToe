@@ -27,9 +27,9 @@ public class GameService implements CreateGameUseCase, MakeMoveUseCase, GetGameU
     }
 
     @Override
-    public GameSnapshot initializeGame(String gameId) {
+    public GameSnapshot initializeGame(String gameId, int boardSize) {
         Game game = gameRepository.findById(gameId)
-                .orElseGet(() -> gameRepository.save(new Game(gameId)));
+                .orElseGet(() -> gameRepository.save(new Game(gameId, boardSize)));
         return game.toSnapshot();
     }
 
@@ -47,7 +47,14 @@ public class GameService implements CreateGameUseCase, MakeMoveUseCase, GetGameU
 
     @Override
     public GameSnapshot getGame(String gameId) {
-        return requireGame(gameId).toSnapshot();
+        Game game = requireGame(gameId);
+        // Same monitor as makeMove: without this, a GET racing a concurrent
+        // move could read the board's backing array mid-write (it's a plain
+        // Symbol[][], not a thread-safe structure) and observe a torn or
+        // stale state.
+        synchronized (game) {
+            return game.toSnapshot();
+        }
     }
 
     private Game requireGame(String gameId) {

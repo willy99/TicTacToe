@@ -4,6 +4,8 @@ import com.flamingo.tictactoe.engine.domain.exception.GameAlreadyFinishedExcepti
 import com.flamingo.tictactoe.engine.domain.exception.GameNotFoundException;
 import com.flamingo.tictactoe.engine.domain.exception.InvalidMoveException;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +18,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(GameNotFoundException.class)
     public ProblemDetail handleGameNotFound(GameNotFoundException ex) {
@@ -48,6 +52,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleUnexpected(Exception ex) {
+        log.error("Unexpected error handling request", ex);
         return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error",
                 "An unexpected error occurred");
     }

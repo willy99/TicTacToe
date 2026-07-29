@@ -4,9 +4,11 @@ import com.flamingo.tictactoe.engine.domain.model.GameSnapshot;
 
 /**
  * Inbound port: initialize a new game for a given id, or return the existing
- * one unchanged if it was already created (idempotent).
+ * one unchanged if it was already created (idempotent). {@code boardSize} is
+ * only honored the first time a given {@code gameId} is initialized - an
+ * existing game keeps whatever size it was originally created with.
  */
 public interface CreateGameUseCase {
 
-    GameSnapshot initializeGame(String gameId);
+    GameSnapshot initializeGame(String gameId, int boardSize);
 }

@@ -5,6 +5,11 @@ spring:
   application:
     name: game-engine-service
 
+game-engine:
+  board:
+    # Board size used when a caller creates a game without specifying one.
+    default-size: 3
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html

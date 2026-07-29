@@ -30,9 +30,9 @@ public class GameEngineHttpClient implements GameEngineClient {
     }
 
     @Override
-    public EngineGameState initializeGame(String gameId) {
+    public EngineGameState initializeGame(String gameId, int boardSize) {
         return call(() -> restClient.put()
-                .uri("/games/{gameId}", gameId)
+                .uri("/games/{gameId}?boardSize={boardSize}", gameId, boardSize)
                 .retrieve()
                 .body(EngineGameResponseDto.class));
     }
@@ -62,6 +62,14 @@ public class GameEngineHttpClient implements GameEngineClient {
                     ex);
         } catch (ResourceAccessException ex) {
             throw new GameEngineCommunicationException("Unable to reach the Game Engine Service", ex);
+        } catch (IllegalArgumentException ex) {
+            // Thrown by Symbol.valueOf/SessionStatus.valueOf in toEngineGameState()
+            // if the response body doesn't match either enum's expected values -
+            // e.g. the two services drifted out of sync. Reported the same way as
+            // any other engine communication failure rather than surfacing as an
+            // opaque 500.
+            throw new GameEngineCommunicationException(
+                    "Game Engine returned an unrecognized response: " + ex.getMessage(), ex);
         }
     }
 

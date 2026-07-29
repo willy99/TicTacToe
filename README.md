@@ -39,10 +39,12 @@ This means storage, transport, and move-generation strategy are all swappable be
 
 ### Key design decisions
 
-- **`PUT /games/{gameId}`** (not `POST`) initializes a game, because the caller supplies the id and the operation is idempotent: calling it twice returns the same in-progress game rather than resetting it. The session service calls this once when a session is created.
-- **Per-aggregate locking.** Both `GameService.makeMove` and `SessionService.simulate` synchronize on the specific `Game`/`Session` instance (not a global lock), so concurrent requests against *different* games/sessions never block each other, while concurrent requests against the *same* one can't corrupt its state.
-- **Progressive persistence for a "live" UI without WebSockets/SSE.** `simulate()` runs synchronously end-to-end (as the assignment describes: "Continue simulation until the game concludes"), but it saves the session to the repository after *every* move, not just at the end, and pauses briefly between moves (`simulation.move-delay-ms`, default 500ms, disabled in tests). The UI fires `POST /sessions/{id}/simulate` and, in parallel, polls `GET /sessions/{id}` every 500ms - so the board fills in move by move using plain HTTP polling. Real push-based updates (WebSocket/SSE) were intentionally left out as an optional enhancement.
-- **RFC 7807 errors.** Both services return `ProblemDetail` responses (`title`, `detail`, `status`, `timestamp`) for every error case, giving API clients one consistent error shape.
+- **`PUT /games/{gameId}`** (not `POST`) initializes a game, because the caller supplies the id and the operation is idempotent: calling it twice returns the same in-progress game rather than resetting it. The session service calls this once when a session is created. An optional `?boardSize=` query param sets the board's edge length (default 3, configurable via `game-engine.board.default-size`); it's only honored the first time a given `gameId` is created.
+- **Configurable board size, end to end.** Nothing in the assignment restricts play to a 3x3 board, so `Board`/`Game` generalize win/draw detection to any `size x size` board, and that size flows all the way through: `game-session-service`'s `game.board.size` (default 3) is sent to the engine when a session is created, stored on the `Session` aggregate, used by the move-generation strategy, and returned to the UI (`SessionResponse.boardSize`), which sizes its grid from it instead of assuming 3.
+- **Per-aggregate locking, including reads.** `GameService`/`SessionService` synchronize every read *and* write of a given `Game`/`Session` on that specific instance (not a global lock) - so concurrent requests against *different* games/sessions never block each other, while a `GET` racing a concurrent move/simulation can't observe a torn or stale board/move-list (both are plain, non-thread-safe structures under the hood).
+- **`simulate()` is asynchronous.** It validates the session, hands the actual move-by-move loop to a dedicated `TaskExecutor` (`SimulationExecutorConfig`), and returns immediately (`202 Accepted`) rather than blocking the HTTP thread for the whole game. Each move is still its own critical section - synchronized just long enough to play one move and persist it, with the pause between moves (`simulation.move-delay-ms`, default 500ms, disabled in tests) happening *outside* the lock - so a concurrent `GET /sessions/{id}` only ever waits for one in-flight move, never the whole game. The UI fires `POST /sessions/{id}/simulate` and, in parallel, polls `GET /sessions/{id}` every 500ms, so the board fills in move by move using plain HTTP polling. Real push-based updates (WebSocket/SSE) were intentionally left out as an optional enhancement.
+- **A session can end up `FAILED`.** Because `simulate()` now runs on a background thread with no HTTP caller waiting, a Game Engine communication failure discovered mid-game has nowhere to propagate to synchronously. Instead the session transitions to a `FAILED` status (with a `failureReason`), observable the same way `WIN`/`DRAW` are: by polling `GET /sessions/{id}`.
+- **RFC 7807 errors.** Both services return `ProblemDetail` responses (`title`, `detail`, `status`, `timestamp`) for every error case, giving API clients one consistent error shape. Unexpected (uncaught) exceptions are also logged server-side before being sanitized into a generic 500, so they're not silently invisible in production.
 - **Executable jar classifier.** The Spring Boot Maven plugin repackages each service under the `exec` classifier (e.g. `game-engine-service-1.0.0-exec.jar`). This keeps the *plain* jar (with classes at the jar root) as the module's default Maven artifact, which is what lets `game-session-service`'s end-to-end test declare a normal `<dependency>` on `game-engine-service` and boot a real instance of it in-process - a repackaged Spring Boot fat jar nests classes under `BOOT-INF/classes/` and can't be used as a plain compile/test dependency by another module.
 
 ## Project structure
@@ -105,7 +107,7 @@ Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://l
 
 | Method | Path | Description |
 |---|---|---|
-| `PUT` | `/games/{gameId}` | Initialize a game (idempotent) |
+| `PUT` | `/games/{gameId}?boardSize=` | Initialize a game (idempotent). `boardSize` is optional (default from `game-engine.board.default-size`, itself defaulting to 3) and only applies the first time a `gameId` is created |
 | `POST` | `/games/{gameId}/move` | Body: `{"symbol":"X","row":0,"col":0}`. Validates and applies the move, returns the updated state |
 | `GET` | `/games/{gameId}` | Current board, status (`IN_PROGRESS`/`WIN`/`DRAW`), and winner |
 
@@ -113,9 +115,9 @@ Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://l
 
 | Method | Path | Description |
 |---|---|---|
-| `POST` | `/sessions` | Create a session; also initializes the game in the engine |
-| `POST` | `/sessions/{sessionId}/simulate` | Play the session to completion, alternating automated X/O moves against the engine |
-| `GET` | `/sessions/{sessionId}` | Current status, winner, and full move history |
+| `POST` | `/sessions` | Create a session on a `game.board.size`-sized board; also initializes the game in the engine |
+| `POST` | `/sessions/{sessionId}/simulate` | `202 Accepted` - kicks off the automated simulation (alternating X/O moves against the engine) and returns immediately, without waiting for the game to finish |
+| `GET` | `/sessions/{sessionId}` | Current status (`IN_PROGRESS`/`WIN`/`DRAW`/`FAILED`), winner, board size, and full move history |
 
 ## Testing
 

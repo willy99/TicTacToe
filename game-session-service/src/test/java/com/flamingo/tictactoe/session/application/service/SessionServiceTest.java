@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -12,13 +13,16 @@ import com.flamingo.tictactoe.session.application.port.out.EngineGameState;
 import com.flamingo.tictactoe.session.application.port.out.GameEngineClient;
 import com.flamingo.tictactoe.session.application.port.out.MoveGenerationStrategy;
 import com.flamingo.tictactoe.session.application.port.out.SessionRepository;
+import com.flamingo.tictactoe.session.domain.exception.GameEngineCommunicationException;
 import com.flamingo.tictactoe.session.domain.exception.SessionAlreadyCompletedException;
 import com.flamingo.tictactoe.session.domain.exception.SessionNotFoundException;
+import com.flamingo.tictactoe.session.domain.exception.SessionSimulationAlreadyStartedException;
 import com.flamingo.tictactoe.session.domain.model.Cell;
 import com.flamingo.tictactoe.session.domain.model.Session;
 import com.flamingo.tictactoe.session.domain.model.SessionSnapshot;
 import com.flamingo.tictactoe.session.domain.model.SessionStatus;
 import com.flamingo.tictactoe.session.domain.model.Symbol;
+import com.flamingo.tictactoe.session.infrastructure.config.BoardProperties;
 import java.util.Optional;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.core.task.TaskExecutor;
 
 @ExtendWith(MockitoExtension.class)
 class SessionServiceTest {
@@ -41,7 +47,15 @@ class SessionServiceTest {
 
     @BeforeEach
     void setUp() {
-        sessionService = new SessionService(sessionRepository, gameEngineClient, moveGenerationStrategy, 0L);
+        BoardProperties boardProperties = new BoardProperties();
+        boardProperties.setSize(3);
+        // SyncTaskExecutor runs the simulation loop on the calling thread
+        // instead of a real worker, so simulate() still returns only after
+        // the whole game has played out - keeping these tests synchronous
+        // and deterministic, the way production's async executor isn't.
+        sessionService = new SessionService(
+                sessionRepository, gameEngineClient, moveGenerationStrategy,
+                boardProperties, new SyncTaskExecutor(), 0L);
     }
 
     @Test
@@ -52,13 +66,14 @@ class SessionServiceTest {
 
         assertThat(snapshot.status()).isEqualTo(SessionStatus.IN_PROGRESS);
         assertThat(snapshot.moves()).isEmpty();
-        verify(gameEngineClient).initializeGame(snapshot.sessionId());
+        assertThat(snapshot.boardSize()).isEqualTo(3);
+        verify(gameEngineClient).initializeGame(snapshot.sessionId(), 3);
         verify(sessionRepository).save(any(Session.class));
     }
 
     @Test
     void simulatePlaysAlternatingMovesUntilTheGameConcludes() {
-        Session session = new Session("s1");
+        Session session = new Session("s1", 3);
         when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
         when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -94,7 +109,7 @@ class SessionServiceTest {
 
     @Test
     void simulateThrowsWhenSessionAlreadyCompleted() {
-        Session session = new Session("s1");
+        Session session = new Session("s1", 3);
         session.recordMove(Symbol.X, 0, 0, SessionStatus.WIN, Symbol.X);
         when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
 
@@ -112,7 +127,7 @@ class SessionServiceTest {
 
     @Test
     void getSessionReturnsCurrentSnapshot() {
-        Session session = new Session("s1");
+        Session session = new Session("s1", 3);
         session.recordMove(Symbol.X, 0, 0, SessionStatus.IN_PROGRESS, null);
         when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
 
@@ -122,8 +137,45 @@ class SessionServiceTest {
     }
 
     @Test
+    void simulateThrowsWhenSimulationAlreadyStartedConcurrently() {
+        Session session = new Session("s1", 3);
+        when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
+
+        BoardProperties boardProperties = new BoardProperties();
+        boardProperties.setSize(3);
+        // A no-op executor never actually runs the queued simulation, so the
+        // session is left marked "started" but still in progress - exactly
+        // the window a second concurrent call needs to be rejected in.
+        TaskExecutor noOpExecutor = mock(TaskExecutor.class);
+        SessionService service = new SessionService(
+                sessionRepository, gameEngineClient, moveGenerationStrategy,
+                boardProperties, noOpExecutor, 0L);
+
+        service.simulate("s1");
+
+        assertThatThrownBy(() -> service.simulate("s1"))
+                .isInstanceOf(SessionSimulationAlreadyStartedException.class);
+    }
+
+    @Test
+    void simulateMarksTheSessionFailedWhenTheEngineIsUnreachable() {
+        Session session = new Session("s1", 3);
+        when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
+        when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(moveGenerationStrategy.nextMove(eq(Symbol.X), any(), anyInt())).thenReturn(new Cell(0, 0));
+        when(gameEngineClient.submitMove(any(), any(), anyInt(), anyInt()))
+                .thenThrow(new GameEngineCommunicationException("Unable to reach the Game Engine Service", null));
+
+        SessionSnapshot snapshot = sessionService.simulate("s1");
+
+        assertThat(snapshot.status()).isEqualTo(SessionStatus.FAILED);
+        assertThat(snapshot.failureReason()).contains("Unable to reach the Game Engine Service");
+    }
+
+    @Test
     void simulateNeverCallsTheStrategyWithAlreadyOccupiedCells() {
-        Session session = new Session("s1");
+        Session session = new Session("s1", 3);
         when(sessionRepository.findById("s1")).thenReturn(Optional.of(session));
         when(sessionRepository.save(any(Session.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

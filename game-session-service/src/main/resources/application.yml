@@ -8,6 +8,12 @@ spring:
 game-engine:
   base-url: http://localhost:8081
 
+game:
+  board:
+    # Board size played by automated sessions; forwarded to the Game Engine
+    # when a session is created and to the move generation strategy.
+    size: 3
+
 simulation:
   # Pause between automated moves so a polling UI can visibly observe the
   # game progressing move by move. Set to 0 to play out instantly.

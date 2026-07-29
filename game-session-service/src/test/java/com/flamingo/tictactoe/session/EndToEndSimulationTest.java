@@ -1,18 +1,23 @@
 package com.flamingo.tictactoe.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 
 import com.flamingo.tictactoe.engine.GameEngineApplication;
 import com.flamingo.tictactoe.session.infrastructure.web.dto.SessionResponse;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.boot.web.context.ServerPortInfoApplicationContextInitializer;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -29,6 +34,21 @@ import org.springframework.test.context.TestPropertySource;
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = "simulation.move-delay-ms=0")
 class EndToEndSimulationTest {
+
+    // simulate() normally hands off to this executor and returns immediately;
+    // replaced here so the assertions below can observe the finished game
+    // straight from the HTTP response, as they did before simulate() was
+    // made non-blocking.
+    @MockBean
+    private TaskExecutor simulationTaskExecutor;
+
+    @BeforeEach
+    void runSimulationsSynchronously() {
+        doAnswer(invocation -> {
+            invocation.getArgument(0, Runnable.class).run();
+            return null;
+        }).when(simulationTaskExecutor).execute(any());
+    }
 
     private static ConfigurableApplicationContext engineContext;
 
@@ -62,7 +82,7 @@ class EndToEndSimulationTest {
         ResponseEntity<SessionResponse> simulated = restTemplate.postForEntity(
                 "/sessions/{sessionId}/simulate", null, SessionResponse.class, sessionId);
 
-        assertThat(simulated.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(simulated.getStatusCode()).isEqualTo(HttpStatus.ACCEPTED);
         SessionResponse result = simulated.getBody();
         assertThat(result).isNotNull();
         assertThat(result.status()).isIn("WIN", "DRAW");

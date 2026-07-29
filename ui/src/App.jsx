@@ -51,9 +51,11 @@ export default function App() {
     try {
       const created = await createSession()
       setSession(created)
-      // The session service plays out the whole game before this call
-      // resolves; the poller above renders progress independently as moves
-      // land, so we don't need to await it before updating the UI.
+      // simulate() kicks off the automated game on the server and returns
+      // immediately - it doesn't wait for the game to finish. The poller
+      // above is what actually renders progress, by re-fetching the session
+      // as moves land, so we don't need to await simulateSession() before
+      // updating the UI.
       pollSessionUntilFinished(created.sessionId)
       await simulateSession(created.sessionId)
     } catch (err) {
@@ -81,8 +83,12 @@ export default function App() {
 
       <section className="game">
         <div className="game__board-column">
-          <Board moves={moves} />
-          <StatusPanel status={session?.status} winner={session?.winner} />
+          <Board moves={moves} boardSize={session?.boardSize} />
+          <StatusPanel
+            status={session?.status}
+            winner={session?.winner}
+            failureReason={session?.failureReason}
+          />
         </div>
         <div className="game__history">
           <h2>Move History</h2>
