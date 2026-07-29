@@ -5,9 +5,9 @@ import com.flamingo.tictactoe.session.domain.model.Symbol;
 import java.util.Set;
 
 /**
- * Outbound port for automated move generation (Strategy pattern). Swapping the
- * implementation bound to this interface - e.g. from random to rule-based or
- * minimax - requires no change to {@code SessionService}.
+ * How the next move gets picked for an automated player. Swapping this for
+ * a different strategy (rule-based, minimax, etc.) doesn't require any
+ * change to SessionService.
  */
 public interface MoveGenerationStrategy {
 

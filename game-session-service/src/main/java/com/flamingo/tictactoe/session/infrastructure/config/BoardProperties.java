@@ -4,10 +4,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * Externalizes the board size the session service plays automated games on.
- * A bean (rather than a constant) so it can be tuned per environment without
- * a code change, and so {@code SessionService} doesn't hardcode "3" while the
- * Game Engine itself supports arbitrary board sizes.
+ * The board size the session service plays automated games on. Reading it
+ * from config instead of hardcoding it means it can be changed per
+ * environment, and SessionService doesn't need to hardcode "3" while the
+ * Game Engine itself can handle any board size.
  */
 @Component
 @ConfigurationProperties(prefix = "game.board")

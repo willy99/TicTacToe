@@ -4,7 +4,7 @@ import com.flamingo.tictactoe.session.domain.model.Session;
 import java.util.Optional;
 
 /**
- * Outbound port for persisting and retrieving {@link Session} aggregates.
+ * Where sessions get saved and loaded from.
  */
 public interface SessionRepository {
 

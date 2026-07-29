@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST adapter exposing the Game Engine's use cases over HTTP. Contains no game
- * rules; it only translates HTTP requests into use case calls and domain
- * snapshots into DTOs.
+ * The HTTP endpoints for the game engine. No game rules here - it just
+ * turns requests into calls to the service above, and turns the results
+ * back into JSON.
  */
 @RestController
 @RequestMapping("/games")
@@ -48,10 +48,10 @@ public class GameController {
     }
 
     /**
-     * Initializes a new game under the given id, or returns the existing one
-     * unchanged if it was already initialized. {@code boardSize} is optional;
-     * when omitted, the configured default ({@code game-engine.board.default-size})
-     * is used.
+     * Creates a new game with the given id, or just returns the existing
+     * one if it's already there (safe to call twice). boardSize is
+     * optional - if it's left out, the configured default
+     * (game-engine.board.default-size) is used instead.
      */
     @PutMapping("/{gameId}")
     public ResponseEntity<GameResponse> initializeGame(

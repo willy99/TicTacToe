@@ -12,10 +12,10 @@ import com.flamingo.tictactoe.engine.domain.model.Symbol;
 import org.springframework.stereotype.Service;
 
 /**
- * Application service implementing every use case exposed by the Game Engine.
- * Orchestrates the domain model and the repository port; contains no board rules
- * itself (those live in {@link Game}) and no HTTP/JSON concerns (those live in
- * the web adapter).
+ * Handles the game engine's actions: create a game, make a move, read a
+ * game's state. The actual game rules live in Game - this class just wires
+ * that up to the repository. No HTTP/JSON code here either, that's in the
+ * web controller.
  */
 @Service
 public class GameService implements CreateGameUseCase, MakeMoveUseCase, GetGameUseCase {
@@ -36,8 +36,8 @@ public class GameService implements CreateGameUseCase, MakeMoveUseCase, GetGameU
     @Override
     public GameSnapshot makeMove(String gameId, Symbol symbol, int row, int col) {
         Game game = requireGame(gameId);
-        // Synchronize per-game-instance so two concurrent moves on the same game
-        // cannot interleave and corrupt the board state.
+        // Lock on this specific game so two moves for the same game can't
+        // run at the same time and corrupt the board.
         synchronized (game) {
             game.applyMove(symbol, new Position(row, col));
             gameRepository.save(game);
@@ -48,10 +48,10 @@ public class GameService implements CreateGameUseCase, MakeMoveUseCase, GetGameU
     @Override
     public GameSnapshot getGame(String gameId) {
         Game game = requireGame(gameId);
-        // Same monitor as makeMove: without this, a GET racing a concurrent
-        // move could read the board's backing array mid-write (it's a plain
-        // Symbol[][], not a thread-safe structure) and observe a torn or
-        // stale state.
+        // Lock on the same game object as makeMove. Without this, a GET
+        // request could read the board while a move is being written to it
+        // (it's a plain array, not thread-safe) and see a half-updated or
+        // stale board.
         synchronized (game) {
             return game.toSnapshot();
         }

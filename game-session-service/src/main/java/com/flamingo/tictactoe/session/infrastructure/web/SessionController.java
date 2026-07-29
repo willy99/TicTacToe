@@ -14,9 +14,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * REST adapter exposing the Game Session's use cases over HTTP. Contains no
- * simulation logic; it only translates HTTP requests into use case calls and
- * domain snapshots into DTOs.
+ * The HTTP endpoints for game sessions. No simulation logic here - it
+ * just turns requests into calls to the service above, and turns the
+ * results back into JSON.
  */
 @RestController
 @RequestMapping("/sessions")
@@ -44,9 +44,9 @@ public class SessionController {
     }
 
     /**
-     * Kicks off the automated simulation and returns immediately - it does
-     * not wait for the game to finish. Poll {@code GET /sessions/{sessionId}}
-     * to observe progress and the eventual outcome.
+     * Starts the automated simulation and returns right away - it doesn't
+     * wait for the game to finish. Poll GET /sessions/{sessionId} to see
+     * progress and the final result.
      */
     @PostMapping("/{sessionId}/simulate")
     public ResponseEntity<SessionResponse> simulate(@PathVariable("sessionId") String sessionId) {

@@ -8,8 +8,8 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Translates domain snapshots into wire-level DTOs. Keeps {@link Symbol} and other
- * domain types from leaking into the HTTP contract.
+ * Turns a game snapshot into the JSON response shape, so internal types
+ * like Symbol don't leak straight into the API.
  */
 @Component
 public class GameMapper {

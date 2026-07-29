@@ -1,6 +1,6 @@
-// Thin client for the Game Session Service REST API. Every function returns
-// the parsed JSON body on success and throws an Error (with a readable
-// message extracted from the backend's ProblemDetail response) on failure.
+// Small wrapper around the Game Session Service's REST API. Each function
+// returns the parsed JSON on success, or throws an Error with a readable
+// message (taken from the backend's error response) on failure.
 
 const BASE_URL = '/sessions'
 

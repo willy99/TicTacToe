@@ -12,11 +12,12 @@ export default function Board({ moves, boardSize = DEFAULT_BOARD_SIZE, winner })
       aria-label="Tic Tac Toe board"
       style={{ '--board-size': boardSize }}
     >
-      {/* Cells get an explicit grid position rather than relying on
-          auto-placement: the win-line below is also explicitly placed, and
-          an auto-placed item is never allowed to overlap an explicitly
-          placed one - it gets pushed into a new row instead. Placing both
-          explicitly lets them intentionally share the same cells. */}
+      {/* Cells get a fixed grid position instead of letting the browser
+          place them automatically. The win-line below also has a fixed
+          position, and the browser never lets an automatically-placed
+          cell overlap one with a fixed position - it just pushes it into
+          a new row instead. Giving both a fixed position lets them share
+          the same cells on purpose. */}
       {cells.map((row, rowIndex) =>
         row.map((symbol, colIndex) => (
           <div
@@ -44,9 +45,9 @@ export default function Board({ moves, boardSize = DEFAULT_BOARD_SIZE, winner })
   )
 }
 
-// The line lives in the same CSS grid as the cells, explicitly placed to
-// span the winning row/column/diagonal - so its position and length come
-// from the grid's own layout instead of hand-computed pixel math.
+// The win-line sits in the same grid as the cells, placed to cover exactly
+// the winning row/column/diagonal - so its position and size come from the
+// grid itself instead of manually calculated pixels.
 function winLineGridArea({ type, index }) {
   switch (type) {
     case 'row':

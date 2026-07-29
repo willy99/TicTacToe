@@ -49,10 +49,10 @@ class SessionServiceTest {
     void setUp() {
         BoardProperties boardProperties = new BoardProperties();
         boardProperties.setSize(3);
-        // SyncTaskExecutor runs the simulation loop on the calling thread
-        // instead of a real worker, so simulate() still returns only after
-        // the whole game has played out - keeping these tests synchronous
-        // and deterministic, the way production's async executor isn't.
+        // SyncTaskExecutor runs the simulation on the same thread instead
+        // of a real background worker, so simulate() only returns after
+        // the whole game is done - that keeps these tests simple and
+        // predictable.
         sessionService = new SessionService(
                 sessionRepository, gameEngineClient, moveGenerationStrategy,
                 boardProperties, new SyncTaskExecutor(), 0L);
@@ -143,9 +143,9 @@ class SessionServiceTest {
 
         BoardProperties boardProperties = new BoardProperties();
         boardProperties.setSize(3);
-        // A no-op executor never actually runs the queued simulation, so the
-        // session is left marked "started" but still in progress - exactly
-        // the window a second concurrent call needs to be rejected in.
+        // This executor never actually runs the queued simulation, so the
+        // session stays marked "started" but still in progress - exactly
+        // the situation where a second call should get rejected.
         TaskExecutor noOpExecutor = mock(TaskExecutor.class);
         SessionService service = new SessionService(
                 sessionRepository, gameEngineClient, moveGenerationStrategy,

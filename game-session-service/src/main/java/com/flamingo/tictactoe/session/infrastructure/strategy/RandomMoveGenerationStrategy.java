@@ -11,9 +11,10 @@ import java.util.concurrent.ThreadLocalRandom;
 import org.springframework.stereotype.Component;
 
 /**
- * Default {@link MoveGenerationStrategy}: picks uniformly at random among the
- * cells that are still free. Simple by design, per the assignment's "simple
- * random or rule-based algorithm" requirement, and fully swappable behind the port.
+ * Picks a random free cell to play. Kept simple on purpose, per the
+ * assignment's "simple random or rule-based algorithm" requirement - it
+ * can be swapped for something smarter later without touching anything
+ * else that uses it.
  */
 @Component
 public class RandomMoveGenerationStrategy implements MoveGenerationStrategy {

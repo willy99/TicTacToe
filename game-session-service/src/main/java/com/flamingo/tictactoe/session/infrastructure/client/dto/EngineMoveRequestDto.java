@@ -1,8 +1,7 @@
 package com.flamingo.tictactoe.session.infrastructure.client.dto;
 
 /**
- * Wire-level request body sent to {@code POST /games/{gameId}/move} on the
- * Game Engine Service.
+ * The JSON body sent to POST /games/{gameId}/move on the Game Engine.
  */
 public record EngineMoveRequestDto(String symbol, int row, int col) {
 }

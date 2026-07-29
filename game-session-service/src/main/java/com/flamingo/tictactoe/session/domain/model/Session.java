@@ -9,9 +9,9 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Aggregate root for a single automated game session. Owns the move history
- * and tracks the outcome reported back by the Game Engine Service after each
- * move; contains no HTTP or move-generation logic of its own.
+ * One automated game session. Keeps the move history and tracks the
+ * outcome the Game Engine reports back after each move - no HTTP or
+ * move-picking logic here, just the session's own state.
  */
 public final class Session {
 
@@ -29,8 +29,8 @@ public final class Session {
     }
 
     /**
-     * Records a move that was just accepted by the Game Engine Service and
-     * updates the session's status to whatever the engine reported back.
+     * Records a move the Game Engine just accepted, and updates the
+     * session's status to whatever the engine reported back.
      */
     public void recordMove(Symbol symbol, int row, int col, SessionStatus resultingStatus, Symbol resultingWinner) {
         if (status != SessionStatus.IN_PROGRESS) {
@@ -42,11 +42,10 @@ public final class Session {
     }
 
     /**
-     * Marks the session as having its automated simulation under way. Guards
-     * against two concurrent {@code POST /sessions/{id}/simulate} calls both
-     * kicking off a background simulation for the same session - the second
-     * caller gets a clear 409 instead of two independent workers racing to
-     * play the same game.
+     * Marks that this session's simulation has started. This stops two
+     * concurrent POST /sessions/{id}/simulate calls from both starting a
+     * background simulation for the same session - the second call gets
+     * a clear 409 instead of two workers racing to play the same game.
      */
     public void startSimulation() {
         if (status != SessionStatus.IN_PROGRESS) {
@@ -59,10 +58,10 @@ public final class Session {
     }
 
     /**
-     * Marks the session as failed because the background simulation loop
-     * couldn't reach the Game Engine. A no-op if the session already reached
-     * a real outcome (WIN/DRAW) - that result takes precedence over a
-     * failure discovered afterward.
+     * Marks the session as failed because the background simulation
+     * couldn't reach the Game Engine. Does nothing if the session already
+     * has a real result (WIN/DRAW) - that result wins over a failure
+     * found afterward.
      */
     public void markFailed(String reason) {
         if (status != SessionStatus.IN_PROGRESS) {

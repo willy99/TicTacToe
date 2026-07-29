@@ -8,9 +8,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Repository;
 
 /**
- * In-memory {@link GameRepository} adapter backed by a {@link ConcurrentHashMap}.
- * Satisfies the assignment's "in-memory data structure" requirement while keeping
- * the storage technology fully swappable behind the port interface.
+ * Stores games in memory using a ConcurrentHashMap. Covers the assignment's
+ * "in-memory data structure" requirement, and it's easy to swap for a real
+ * database later since everything else only depends on GameRepository, not
+ * on this class.
  */
 @Repository
 public class InMemoryGameRepository implements GameRepository {

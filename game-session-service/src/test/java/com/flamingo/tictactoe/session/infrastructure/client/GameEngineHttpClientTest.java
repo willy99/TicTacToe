@@ -18,8 +18,8 @@ import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
 /**
- * Verifies the HTTP adapter in isolation: request shape sent to the Game
- * Engine and response/error translation, without a real network call.
+ * Checks the HTTP client on its own: what it sends to the Game Engine and
+ * how it turns responses/errors into results, without a real network call.
  */
 class GameEngineHttpClientTest {
 
@@ -80,8 +80,8 @@ class GameEngineHttpClientTest {
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
         GameEngineHttpClient client = new GameEngineHttpClient(builder.build());
 
-        // Simulates the two services having drifted out of sync: a status
-        // value the session service's SessionStatus enum doesn't recognize.
+        // Pretends the two services got out of sync: a status value the
+        // session service's SessionStatus enum doesn't know about.
         server.expect(requestTo("http://game-engine/games/g1/move"))
                 .andRespond(withSuccess(
                         "{\"gameId\":\"g1\",\"board\":[[\"X\",null,null],[null,null,null],[null,null,null]],\"status\":\"UNKNOWN_STATUS\",\"winner\":null}",

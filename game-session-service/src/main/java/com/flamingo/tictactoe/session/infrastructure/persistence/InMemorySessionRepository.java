@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Repository;
 
 /**
- * In-memory {@link SessionRepository} adapter backed by a {@link ConcurrentHashMap}.
+ * Stores sessions in memory using a ConcurrentHashMap.
  */
 @Repository
 public class InMemorySessionRepository implements SessionRepository {

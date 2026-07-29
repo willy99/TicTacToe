@@ -3,9 +3,8 @@ package com.flamingo.tictactoe.session.domain.model;
 import java.util.List;
 
 /**
- * Immutable, read-only view of a {@link Session} at a point in time, handed
- * out by the application layer so the mutable aggregate never leaks outside
- * the domain.
+ * A read-only snapshot of a Session at one point in time, handed out so
+ * nobody outside can get hold of the real, mutable session and change it.
  */
 public record SessionSnapshot(
         String sessionId,

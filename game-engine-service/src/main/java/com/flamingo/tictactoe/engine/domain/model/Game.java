@@ -4,9 +4,9 @@ import com.flamingo.tictactoe.engine.domain.exception.GameAlreadyFinishedExcepti
 import java.util.Objects;
 
 /**
- * Aggregate root for a single Tic Tac Toe game. Owns the board and enforces every
- * invariant: a move may only be applied while the game is in progress, and the
- * outcome (win/draw/in-progress) is re-evaluated after each move.
+ * One Tic Tac Toe game. Holds the board and makes sure a move can only be
+ * played while the game is still in progress; after every move it checks
+ * whether that move won the game or filled the board for a draw.
  */
 public final class Game {
 
@@ -16,16 +16,16 @@ public final class Game {
     private Symbol winner;
 
     /**
-     * Creates a classic 3x3 game. Equivalent to {@code new Game(id, Board.DEFAULT_SIZE)}.
+     * Creates a regular 3x3 game.
      */
     public Game(String id) {
         this(id, Board.DEFAULT_SIZE);
     }
 
     /**
-     * Creates a game on a {@code boardSize x boardSize} board (must be at
-     * least 3). Winning still means filling an entire row, column, or
-     * diagonal - just scaled to the board's own size.
+     * Creates a game on a boardSize x boardSize board (must be at least 3).
+     * Winning still means filling a whole row, column, or diagonal - just
+     * scaled to whatever size the board is.
      */
     public Game(String id, int boardSize) {
         this.id = Objects.requireNonNull(id, "id must not be null");
@@ -33,8 +33,8 @@ public final class Game {
     }
 
     /**
-     * Applies a move for {@code symbol} at {@code position}, then re-evaluates the
-     * game outcome. Throws if the game already finished or the move is illegal.
+     * Plays a move for symbol at position, then checks whether it won or
+     * drew the game. Throws if the game is already over or the move isn't allowed.
      */
     public void applyMove(Symbol symbol, Position position) {
         if (status != GameStatus.IN_PROGRESS) {

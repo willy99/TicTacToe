@@ -13,8 +13,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Translates domain exceptions into RFC 7807 {@link ProblemDetail} responses,
- * so every error the API returns has a consistent, machine-readable shape.
+ * Catches errors and turns them into the same kind of JSON error response
+ * (RFC 7807 "problem details") instead of a raw stack trace or a plain 500.
  */
 @RestControllerAdvice
 public class GlobalExceptionHandler {

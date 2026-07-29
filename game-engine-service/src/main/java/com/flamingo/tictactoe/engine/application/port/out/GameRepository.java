@@ -4,9 +4,10 @@ import com.flamingo.tictactoe.engine.domain.model.Game;
 import java.util.Optional;
 
 /**
- * Outbound port for persisting and retrieving {@link Game} aggregates. The application
- * layer depends only on this abstraction; the concrete storage technology (in-memory
- * map today, a database tomorrow) is plugged in by the infrastructure layer.
+ * Where games get saved and loaded from. The rest of the code only depends
+ * on this interface, not on how games are actually stored - today that's
+ * an in-memory map, but it could be swapped for a real database later
+ * without changing anything else.
  */
 public interface GameRepository {
 

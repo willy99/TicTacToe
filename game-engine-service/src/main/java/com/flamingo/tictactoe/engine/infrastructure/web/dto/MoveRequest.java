@@ -5,14 +5,13 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 
 /**
- * Request body for {@code POST /games/{gameId}/move}.
+ * Request body for POST /games/{gameId}/move.
  *
- * <p>Only non-negativity is validated here. There's no static upper bound on
- * {@code row}/{@code col} because a game's board size is configurable per
- * game (see {@code PUT /games/{gameId}?boardSize=}); whether a coordinate
- * actually fits *this* game's board is checked against its actual size by
- * the domain layer, which rejects an out-of-bounds move as an
- * {@code InvalidMoveException} (400).
+ * <p>Only checks that row/col aren't negative. There's no upper limit here
+ * because board size can be different for each game (see
+ * PUT /games/{gameId}?boardSize=) - whether a move actually fits on this
+ * particular game's board gets checked afterward, and rejected as an
+ * InvalidMoveException (400) if it doesn't.
  *
  * @param symbol "X" or "O"
  * @param row    zero-based row

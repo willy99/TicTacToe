@@ -22,9 +22,10 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.stereotype.Service;
 
 /**
- * Application service implementing every use case exposed by the Game Session
- * Service. Orchestrates the session aggregate, the move generation strategy,
- * and the Game Engine client; contains no HTTP/JSON concerns of its own.
+ * Handles the session service's actions: create a session, run the
+ * simulation, read a session's state. Ties together the session itself,
+ * the move-picking strategy, and the Game Engine client - no HTTP/JSON
+ * code here, that's in the web controller.
  */
 @Service
 public class SessionService implements CreateSessionUseCase, SimulateGameUseCase, GetSessionUseCase {
@@ -54,7 +55,7 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
 
     @Override
     public SessionSnapshot createSession() {
-        // The session id doubles as the Game Engine's gameId, so the two
+        // The session id is also used as the Game Engine's gameId, so both
         // services always agree on which game a session refers to.
         String sessionId = UUID.randomUUID().toString();
         int boardSize = boardProperties.getSize();
@@ -67,12 +68,11 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
     }
 
     /**
-     * Kicks off the automated simulation and returns immediately with the
-     * session's current snapshot - it does not wait for the game to finish.
-     * The loop that actually plays out the game runs on
-     * {@link #simulationTaskExecutor}, so this call never blocks an HTTP
-     * request thread for the several seconds a full game can take. Callers
-     * that want to observe progress poll {@code GET /sessions/{id}}.
+     * Starts the automated simulation and returns right away with the
+     * session's current snapshot - it doesn't wait for the game to finish.
+     * The loop that actually plays the game runs on simulationTaskExecutor,
+     * so this call never blocks an HTTP request thread for the several
+     * seconds a full game can take. Poll GET /sessions/{id} to see progress.
      */
     @Override
     public SessionSnapshot simulate(String sessionId) {
@@ -91,21 +91,21 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
         boolean inProgress = true;
         while (inProgress) {
             try {
-                // Each move is its own critical section (not the whole loop),
-                // so a concurrent GET /sessions/{id} only ever blocks for the
-                // duration of one move, not the whole game - that's what lets
-                // a polling UI observe the board filling in move by move
-                // instead of only seeing the final result.
+                // Each move locks the session on its own, not the whole
+                // loop, so a GET /sessions/{id} request only ever has to
+                // wait for one move to finish, not the whole game. That's
+                // what lets a polling UI see the board fill in move by
+                // move instead of only the final result.
                 synchronized (session) {
                     playNextMove(session);
                     sessionRepository.save(session);
                     inProgress = session.isInProgress();
                 }
             } catch (RuntimeException ex) {
-                // Nothing is waiting on an HTTP response at this point - this
-                // runs on the simulation executor, not a request thread - so
-                // the only way a client learns about this is by polling and
-                // seeing FAILED, same as it learns about WIN/DRAW.
+                // There's no HTTP request waiting right now - this runs in
+                // the background, not on a request thread - so polling and
+                // seeing FAILED is the only way a client finds out about
+                // this, same as it finds out about WIN/DRAW.
                 log.error("Simulation failed for session {}", session.id(), ex);
                 synchronized (session) {
                     session.markFailed(ex.getMessage());
@@ -145,10 +145,10 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
     }
 
     private SessionSnapshot snapshotOf(Session session) {
-        // Same monitor runSimulation() mutates under: Session's move list and
-        // status are plain (non-thread-safe) fields, so a read must be
-        // synchronized on the same lock as every write to avoid a torn read
-        // or a ConcurrentModificationException while a simulation is running.
+        // Locks on the same session object runSimulation() uses. Session's
+        // move list and status are plain fields, not thread-safe, so a
+        // read has to use the same lock as every write - otherwise this
+        // could read a half-updated session while a simulation is running.
         synchronized (session) {
             return session.toSnapshot();
         }

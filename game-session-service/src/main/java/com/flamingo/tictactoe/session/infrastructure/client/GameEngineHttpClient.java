@@ -15,10 +15,10 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
 /**
- * {@link GameEngineClient} adapter that talks to the Game Engine Service over
- * HTTP using Spring's {@link RestClient}. Any transport or remote error is
- * translated into a single domain-level {@link GameEngineCommunicationException}
- * so the application layer never has to know about HTTP.
+ * Talks to the Game Engine over HTTP using Spring's RestClient. Any
+ * network or server error gets turned into one
+ * GameEngineCommunicationException, so the rest of the code doesn't need
+ * to know or care that this is HTTP underneath.
  */
 @Component
 public class GameEngineHttpClient implements GameEngineClient {
@@ -63,11 +63,10 @@ public class GameEngineHttpClient implements GameEngineClient {
         } catch (ResourceAccessException ex) {
             throw new GameEngineCommunicationException("Unable to reach the Game Engine Service", ex);
         } catch (IllegalArgumentException ex) {
-            // Thrown by Symbol.valueOf/SessionStatus.valueOf in toEngineGameState()
-            // if the response body doesn't match either enum's expected values -
-            // e.g. the two services drifted out of sync. Reported the same way as
-            // any other engine communication failure rather than surfacing as an
-            // opaque 500.
+            // Symbol.valueOf/SessionStatus.valueOf in toEngineGameState() throws
+            // this if the response doesn't match either enum's values - e.g. the
+            // two services got out of sync. Treated the same as any other
+            // communication failure instead of showing up as a confusing 500.
             throw new GameEngineCommunicationException(
                     "Game Engine returned an unrecognized response: " + ex.getMessage(), ex);
         }

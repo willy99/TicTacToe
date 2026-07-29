@@ -1,7 +1,6 @@
-// Reconstructs the board grid from a session's move history, since the Game
-// Session Service reports moves rather than a pre-rendered board. Board size
-// is configurable server-side (see game-session-service's game.board.size),
-// so it's a parameter here rather than a hardcoded 3.
+// Builds the board grid from a session's move history, since the backend
+// only sends a list of moves, not a ready-made board. Board size can be
+// changed on the backend, so it's passed in here instead of always being 3.
 
 export const DEFAULT_BOARD_SIZE = 3
 
@@ -13,9 +12,9 @@ export function buildBoardFromMoves(moves, boardSize = DEFAULT_BOARD_SIZE) {
   return board
 }
 
-// Finds which row, column, or diagonal is filled entirely with `winner`, so
-// the board can draw a strike-through line over it. Generalized to any
-// board size rather than assuming 3, same as the win check on the backend.
+// Finds which row, column, or diagonal is completely filled with `winner`,
+// so we know where to draw the strike-through line. Works for any board
+// size, not just 3, same as the backend's win check.
 export function findWinningLine(cells, winner) {
   if (!winner) {
     return null

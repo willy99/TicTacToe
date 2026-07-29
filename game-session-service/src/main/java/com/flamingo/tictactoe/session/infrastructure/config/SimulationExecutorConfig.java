@@ -6,12 +6,12 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 /**
- * Backs {@code SessionService.simulate()} with a dedicated thread pool so
- * playing out an automated game (several moves, each separated by
- * {@code simulation.move-delay-ms}) never ties up an HTTP request-handling
- * thread for the whole duration. {@code simulate()} hands the game-playing
- * loop to this executor and returns immediately; the UI already learns about
- * progress independently by polling {@code GET /sessions/{id}}.
+ * A thread pool for running SessionService.simulate() in the background,
+ * so playing out a whole automated game (several moves, each with a pause
+ * of simulation.move-delay-ms) never blocks an HTTP request thread for
+ * that whole time. simulate() hands the game-playing loop to this executor
+ * and returns right away; the UI finds out about progress on its own by
+ * polling GET /sessions/{id}.
  */
 @Configuration
 public class SimulationExecutorConfig {

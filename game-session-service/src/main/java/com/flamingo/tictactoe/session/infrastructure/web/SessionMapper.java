@@ -8,7 +8,7 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 /**
- * Translates domain snapshots into wire-level DTOs.
+ * Turns a session snapshot into the JSON response shape.
  */
 @Component
 public class SessionMapper {

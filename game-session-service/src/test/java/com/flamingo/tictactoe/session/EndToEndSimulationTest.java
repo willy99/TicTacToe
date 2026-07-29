@@ -25,20 +25,20 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
 
 /**
- * Genuine cross-service end-to-end test. Unlike {@code SessionControllerIntegrationTest},
- * which mocks the Game Engine, this test boots a real, separate Game Engine
- * Service instance on a random port and points the Game Session Service (also
- * under test on a random port) at it, then drives a full automated game
- * across real HTTP calls between the two - exactly what happens in production.
+ * A real end-to-end test. Unlike SessionControllerIntegrationTest, which
+ * mocks the Game Engine, this one starts a real, separate Game Engine on
+ * its own random port and points the session service at it, then plays a
+ * full game across real HTTP calls between the two - the same as what
+ * happens when both services actually run.
  */
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 @TestPropertySource(properties = "simulation.move-delay-ms=0")
 class EndToEndSimulationTest {
 
-    // simulate() normally hands off to this executor and returns immediately;
-    // replaced here so the assertions below can observe the finished game
-    // straight from the HTTP response, as they did before simulate() was
-    // made non-blocking.
+    // simulate() normally hands off to this executor and returns right
+    // away; replaced here so the checks below can see the finished game
+    // straight from the HTTP response, like before simulate() was made
+    // non-blocking.
     @MockBean
     private TaskExecutor simulationTaskExecutor;
 

@@ -4,16 +4,15 @@ import com.flamingo.tictactoe.engine.domain.exception.CellOccupiedException;
 import com.flamingo.tictactoe.engine.domain.exception.InvalidMoveException;
 
 /**
- * Mutable {@code size x size} grid of {@link Symbol}s. Owned exclusively by
- * {@link Game}; nothing outside the aggregate should be able to obtain a
- * reference to a mutable Board.
+ * A mutable size x size grid of symbols. Only Game is allowed to touch a
+ * Board directly - nothing outside it should hold a reference to one.
  *
- * <p>The board's dimension is a constructor parameter rather than a fixed
- * constant, so the same win-detection logic works for classic 3x3 as well as
- * larger boards (e.g. 6x6, where winning means filling an entire row, column,
- * or diagonal of 6). {@link Position} only guarantees non-negative
- * coordinates; whether a coordinate actually fits *this* board is this
- * class's responsibility, since only the board knows its own size.
+ * <p>The size is passed into the constructor instead of being a fixed
+ * number, so the same win-checking code works for a regular 3x3 board and
+ * for bigger ones too (e.g. 6x6, where you need 6 in a row to win).
+ * Position only makes sure row/col aren't negative; checking whether a
+ * position actually fits on this particular board is Board's job, since
+ * only Board knows how big it is.
  */
 final class Board {
 
@@ -57,17 +56,16 @@ final class Board {
     }
 
     /**
-     * O(1): {@link #place} is the board's only mutation point, so it keeps
-     * {@link #filledCellCount} in sync instead of rescanning every cell here.
+     * place() is the only place that fills a cell, so it just keeps a
+     * running count here instead of scanning every cell each time.
      */
     boolean isFull() {
         return filledCellCount == size * size;
     }
 
     /**
-     * Returns whether {@code symbol} currently occupies a full row, column, or
-     * diagonal - generalized to the board's actual size, so a 6x6 board needs
-     * 6 in a line, not a hardcoded 3.
+     * True if symbol fills a whole row, column, or diagonal. Works for any
+     * board size, so a 6x6 board needs 6 in a line, not always 3.
      */
     boolean hasWinningLineFor(Symbol symbol) {
         for (int i = 0; i < size; i++) {
@@ -115,7 +113,7 @@ final class Board {
     }
 
     /**
-     * Defensive copy of the current cell contents, safe to hand out to callers.
+     * Makes a copy of the current cells, safe to hand out to callers.
      */
     Symbol[][] snapshotCells() {
         Symbol[][] copy = new Symbol[size][size];

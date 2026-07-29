@@ -4,7 +4,7 @@ import com.flamingo.tictactoe.engine.domain.model.GameSnapshot;
 import com.flamingo.tictactoe.engine.domain.model.Symbol;
 
 /**
- * Inbound port: apply a single move to an existing game and return the resulting state.
+ * Plays one move on an existing game and returns the game's new state.
  */
 public interface MakeMoveUseCase {
 

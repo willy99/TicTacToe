@@ -6,9 +6,9 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Allows the React UI (served from a different origin during development,
- * e.g. the Vite dev server) to call this API directly. The allowed origin is
- * externalized so it can be tightened per environment.
+ * Lets the React UI (running on a different port during development, e.g.
+ * the Vite dev server) call this API. The allowed origin is read from
+ * config so it can be changed per environment.
  */
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {

@@ -30,18 +30,18 @@ import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
 /**
- * Full-stack integration tests for the session service in isolation: real
- * Spring context, real controller/service/repository, with the outbound
- * {@link GameEngineClient} port replaced by a mock so no real HTTP call to
- * another process is needed. The cross-service HTTP contract is separately
- * verified in {@code EndToEndSimulationTest}.
+ * Full tests for the session service on its own: real Spring context,
+ * real controller/service/repository, with GameEngineClient replaced by
+ * a mock so nothing actually calls the Game Engine over HTTP. The real
+ * HTTP call between the two services is tested separately in
+ * EndToEndSimulationTest.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
-// No artificial pause between simulated moves - tests only care about
-// correctness, not pacing. Layered on top of application.yml rather than a
-// separate test application.yml, which would shadow the whole file instead
-// of overriding just this one property.
+// No pause between simulated moves here - the tests only care whether
+// things work, not how fast. This overrides just this one property on
+// top of application.yml, instead of a separate test config file that
+// would replace the whole thing.
 @TestPropertySource(properties = "simulation.move-delay-ms=0")
 class SessionControllerIntegrationTest {
 
@@ -55,11 +55,11 @@ class SessionControllerIntegrationTest {
     private GameEngineClient gameEngineClient;
 
     // simulate() normally hands the game-playing loop to this executor and
-    // returns immediately - see SessionService. These tests care about the
-    // eventual outcome, not the async hand-off itself, so the executor is
-    // replaced with one that runs the task on the calling thread: the HTTP
-    // response then already reflects the finished game, same as before
-    // simulate() was made non-blocking.
+    // returns right away (see SessionService). These tests only care about
+    // the final result, not about it running in the background, so this
+    // executor just runs the task right there instead - the HTTP response
+    // then already shows the finished game, like before simulate() was
+    // made non-blocking.
     @MockBean
     private TaskExecutor simulationTaskExecutor;
 
@@ -141,9 +141,9 @@ class SessionControllerIntegrationTest {
     @Test
     void whenTheGameEngineIsUnreachableTheSessionEndsUpFailed() throws Exception {
         // The failure happens on the simulation executor, not on this
-        // request's own thread, so it can no longer surface as an HTTP error
-        // response for this call - only as a FAILED status once observed,
-        // here immediately since the executor is stubbed to run inline.
+        // request's own thread, so it can't come back as an HTTP error
+        // for this call anymore - only as a FAILED status, which shows up
+        // right away here since the executor is set up to run inline.
         when(gameEngineClient.initializeGame(anyString(), anyInt()))
                 .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
         when(gameEngineClient.submitMove(anyString(), any(Symbol.class), anyInt(), anyInt()))

@@ -6,9 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
 
 /**
- * Configures the {@link RestClient} used to talk to the Game Engine Service.
- * The base URL is externalized so it can be pointed at a different host/port
- * per environment without any code change.
+ * Sets up the RestClient used to call the Game Engine. The base URL comes
+ * from config so it can point at a different host/port per environment
+ * without changing any code.
  */
 @Configuration
 public class RestClientConfig {
