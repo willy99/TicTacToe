@@ -30,7 +30,6 @@ export async function simulateSession(sessionId) {
   return handleResponse(response)
 }
 
-export async function getSession(sessionId) {
-  const response = await fetch(`${BASE_URL}/${sessionId}`)
-  return handleResponse(response)
+export function sessionStreamUrl(sessionId) {
+  return `${BASE_URL}/${sessionId}/stream`
 }

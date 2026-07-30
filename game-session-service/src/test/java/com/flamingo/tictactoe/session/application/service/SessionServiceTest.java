@@ -13,6 +13,7 @@ import com.flamingo.tictactoe.session.application.port.out.EngineGameState;
 import com.flamingo.tictactoe.session.application.port.out.GameEngineClient;
 import com.flamingo.tictactoe.session.application.port.out.MoveGenerationStrategy;
 import com.flamingo.tictactoe.session.application.port.out.SessionRepository;
+import com.flamingo.tictactoe.session.application.port.out.SessionUpdatePublisher;
 import com.flamingo.tictactoe.session.domain.exception.GameEngineCommunicationException;
 import com.flamingo.tictactoe.session.domain.exception.SessionAlreadyCompletedException;
 import com.flamingo.tictactoe.session.domain.exception.SessionNotFoundException;
@@ -42,6 +43,8 @@ class SessionServiceTest {
     private GameEngineClient gameEngineClient;
     @Mock
     private MoveGenerationStrategy moveGenerationStrategy;
+    @Mock
+    private SessionUpdatePublisher sessionUpdatePublisher;
 
     private SessionService sessionService;
 
@@ -55,7 +58,7 @@ class SessionServiceTest {
         // predictable.
         sessionService = new SessionService(
                 sessionRepository, gameEngineClient, moveGenerationStrategy,
-                boardProperties, new SyncTaskExecutor(), 0L);
+                boardProperties, new SyncTaskExecutor(), sessionUpdatePublisher, 0L);
     }
 
     @Test
@@ -97,6 +100,9 @@ class SessionServiceTest {
         assertThat(snapshot.moves()).hasSize(3);
         // Saved once per move (3 moves) so a concurrent poller sees live progress.
         verify(sessionRepository, org.mockito.Mockito.times(3)).save(session);
+        // Published once per move too, so anyone watching the stream sees
+        // the same live progress.
+        verify(sessionUpdatePublisher, org.mockito.Mockito.times(3)).publish(any());
     }
 
     @Test
@@ -149,7 +155,7 @@ class SessionServiceTest {
         TaskExecutor noOpExecutor = mock(TaskExecutor.class);
         SessionService service = new SessionService(
                 sessionRepository, gameEngineClient, moveGenerationStrategy,
-                boardProperties, noOpExecutor, 0L);
+                boardProperties, noOpExecutor, sessionUpdatePublisher, 0L);
 
         service.simulate("s1");
 
@@ -171,6 +177,7 @@ class SessionServiceTest {
 
         assertThat(snapshot.status()).isEqualTo(SessionStatus.FAILED);
         assertThat(snapshot.failureReason()).contains("Unable to reach the Game Engine Service");
+        verify(sessionUpdatePublisher).publish(snapshot);
     }
 
     @Test

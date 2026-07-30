@@ -24,7 +24,9 @@ application/     ports/in    - use case interfaces (what the service offers)
 infrastructure/  web/         - REST controllers, DTOs, mappers,
                                 @RestControllerAdvice error handling
                  persistence/ - in-memory adapters implementing the
-                                repository ports
+                                repository ports (persistence/jpa/ is a
+                                separate, not-yet-wired H2/JPA scaffold -
+                                see "Persistence scaffold" below)
                  client/      - (session service only) the RestClient
                                 adapter implementing GameEngineClient
                  strategy/    - (session service only) the random move
@@ -42,8 +44,9 @@ This means storage, transport, and move-generation strategy are all swappable be
 - **`PUT /games/{gameId}`** (not `POST`) initializes a game, because the caller supplies the id and the operation is idempotent: calling it twice returns the same in-progress game rather than resetting it. The session service calls this once when a session is created. An optional `?boardSize=` query param sets the board's edge length (default 3, configurable via `game-engine.board.default-size`); it's only honored the first time a given `gameId` is created.
 - **Configurable board size, end to end.** Nothing in the assignment restricts play to a 3x3 board, so `Board`/`Game` generalize win/draw detection to any `size x size` board, and that size flows all the way through: `game-session-service`'s `game.board.size` (default 3) is sent to the engine when a session is created, stored on the `Session` aggregate, used by the move-generation strategy, and returned to the UI (`SessionResponse.boardSize`), which sizes its grid from it instead of assuming 3.
 - **Per-aggregate locking, including reads.** `GameService`/`SessionService` synchronize every read *and* write of a given `Game`/`Session` on that specific instance (not a global lock) - so concurrent requests against *different* games/sessions never block each other, while a `GET` racing a concurrent move/simulation can't observe a torn or stale board/move-list (both are plain, non-thread-safe structures under the hood).
-- **`simulate()` is asynchronous.** It validates the session, hands the actual move-by-move loop to a dedicated `TaskExecutor` (`SimulationExecutorConfig`), and returns immediately (`202 Accepted`) rather than blocking the HTTP thread for the whole game. Each move is still its own critical section - synchronized just long enough to play one move and persist it, with the pause between moves (`simulation.move-delay-ms`, default 500ms, disabled in tests) happening *outside* the lock - so a concurrent `GET /sessions/{id}` only ever waits for one in-flight move, never the whole game. The UI fires `POST /sessions/{id}/simulate` and, in parallel, polls `GET /sessions/{id}` every 500ms, so the board fills in move by move using plain HTTP polling. Real push-based updates (WebSocket/SSE) were intentionally left out as an optional enhancement.
-- **A session can end up `FAILED`.** Because `simulate()` now runs on a background thread with no HTTP caller waiting, a Game Engine communication failure discovered mid-game has nowhere to propagate to synchronously. Instead the session transitions to a `FAILED` status (with a `failureReason`), observable the same way `WIN`/`DRAW` are: by polling `GET /sessions/{id}`.
+- **`simulate()` is asynchronous.** It validates the session, hands the actual move-by-move loop to a dedicated `TaskExecutor` (`SimulationExecutorConfig`), and returns immediately (`202 Accepted`) rather than blocking the HTTP thread for the whole game. Each move is still its own critical section - synchronized just long enough to play one move and persist it, with the pause between moves (`simulation.move-delay-ms`, default 500ms, disabled in tests) happening *outside* the lock - so a concurrent `GET /sessions/{id}` only ever waits for one in-flight move, never the whole game.
+- **Live updates via SSE, not polling.** The UI fires `POST /sessions/{id}/simulate` and opens `GET /sessions/{id}/stream` (a Server-Sent Events feed) instead of polling on a timer. `SessionService` reports every state change through the `SessionUpdatePublisher` port; the `SseSessionUpdatePublisher` adapter keeps a list of open connections per session and pushes to all of them, closing each one once the game reaches a final result. A client that connects mid-game gets the current state immediately, not just future updates.
+- **A session can end up `FAILED`.** Because `simulate()` now runs on a background thread with no HTTP caller waiting, a Game Engine communication failure discovered mid-game has nowhere to propagate to synchronously. Instead the session transitions to a `FAILED` status (with a `failureReason`), observable the same way `WIN`/`DRAW` are: through the stream (or by polling `GET /sessions/{id}`).
 - **RFC 7807 errors.** Both services return `ProblemDetail` responses (`title`, `detail`, `status`, `timestamp`) for every error case, giving API clients one consistent error shape. Unexpected (uncaught) exceptions are also logged server-side before being sanitized into a generic 500, so they're not silently invisible in production.
 - **Executable jar classifier.** The Spring Boot Maven plugin repackages each service under the `exec` classifier (e.g. `game-engine-service-1.0.0-exec.jar`). This keeps the *plain* jar (with classes at the jar root) as the module's default Maven artifact, which is what lets `game-session-service`'s end-to-end test declare a normal `<dependency>` on `game-engine-service` and boot a real instance of it in-process - a repackaged Spring Boot fat jar nests classes under `BOOT-INF/classes/` and can't be used as a plain compile/test dependency by another module.
 
@@ -99,7 +102,7 @@ java -jar game-engine-service/target/game-engine-service-1.0.0-exec.jar
 java -jar game-session-service/target/game-session-service-1.0.0-exec.jar
 ```
 
-Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://localhost:8082/swagger-ui.html` while each service is running.
+Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://localhost:8082/swagger-ui.html` while each service is running. Each service also exposes an H2 console at `/h2-console` (JDBC URL `jdbc:h2:mem:gameengine` or `jdbc:h2:mem:gamesession`) - only useful for poking at the JPA scaffold described below, since nothing writes to it yet.
 
 ## API
 
@@ -118,6 +121,7 @@ Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://l
 | `POST` | `/sessions` | Create a session on a `game.board.size`-sized board; also initializes the game in the engine |
 | `POST` | `/sessions/{sessionId}/simulate` | `202 Accepted` - kicks off the automated simulation (alternating X/O moves against the engine) and returns immediately, without waiting for the game to finish |
 | `GET` | `/sessions/{sessionId}` | Current status (`IN_PROGRESS`/`WIN`/`DRAW`/`FAILED`), winner, board size, and full move history |
+| `GET` | `/sessions/{sessionId}/stream` | Server-Sent Events feed: sends the current state right away, then again after every move, until the game ends |
 
 ## Testing
 
@@ -132,11 +136,16 @@ What's covered:
 - **Domain unit tests** (`Board`, `Game`, `Session`, `Position`) - win/draw/invalid-move rules with no Spring context.
 - **Application service tests** (`GameServiceTest`, `SessionServiceTest`) - use cases with mocked ports (Mockito).
 - **Adapter tests** (`RandomMoveGenerationStrategyTest`, `GameEngineHttpClientTest`) - the random strategy never picks an occupied cell; the HTTP client sends the right requests and translates errors correctly, using `MockRestServiceServer` (no real network call).
-- **Controller integration tests** (`GameControllerIntegrationTest`, `SessionControllerIntegrationTest`) - full Spring context + MockMvc, covering happy paths, validation errors, 404/409/502 error mapping.
+- **Controller integration tests** (`GameControllerIntegrationTest`, `SessionControllerIntegrationTest`) - full Spring context + MockMvc, covering happy paths, validation errors, 404/409/502 error mapping, and the `/stream` endpoint (404 for an unknown session, and the current state being sent and the connection closing once a game is over).
 - **`EndToEndSimulationTest`** - boots a real `game-engine-service` instance alongside `game-session-service` under test and plays a full automated game across genuine HTTP calls between the two, verifying the actual cross-service contract (not mocks).
+- **`GameJpaRepositoryTest` / `SessionJpaRepositoryTest`** (`@DataJpaTest`) - prove the JPA scaffold (see below) actually saves and loads from a real H2 database, not just code that looks right.
 
 The UI has no automated test suite (out of scope), but `npm run build` and `npm run lint` both pass cleanly.
 
+## Persistence scaffold (not wired in)
+
+Both services have `spring-boot-starter-data-jpa` and H2 on the classpath, plus a `GameEntity`/`SessionEntity` and a Spring Data `JpaRepository` for each, under `infrastructure/persistence/jpa`. This is only a sketch of the next step, not a working feature: `GameRepository`/`SessionRepository` are still backed by the in-memory adapters, the entities don't yet capture the board cells or move history (just the summary fields), and nothing wires a JPA-backed adapter into the ports. It exists to show the direction is real and buildable - the `@DataJpaTest`s above prove the entities and repositories actually work against H2 - without taking on the larger job of mapping the full domain aggregates to a schema.
+
 ## What was intentionally left out (optional enhancements)
 
-Per the assignment, these were not implemented: distributed/optimistic concurrency beyond per-aggregate locking, service discovery / API gateway (Eureka, Spring Cloud Gateway), persistent storage (H2/JPA), and WebSocket/SSE push updates. The architecture's use of ports and interfaces means all four could be added later without touching domain or application code.
+Per the assignment, two optional enhancements are still fully open: distributed/optimistic concurrency beyond per-aggregate locking (this covers a single instance of each service; multiple instances behind a load balancer would need database-backed locking instead), and service discovery / API gateway (Eureka, Spring Cloud Gateway) - neither was worth the added infrastructure for a two-service demo of this size. Real-time updates now use Server-Sent Events (see above), and persistent storage has a scaffold (see above) rather than being fully wired in. The architecture's use of ports and interfaces means all of this could be extended later without touching domain or application code.

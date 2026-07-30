@@ -7,6 +7,7 @@ import com.flamingo.tictactoe.session.application.port.out.EngineGameState;
 import com.flamingo.tictactoe.session.application.port.out.GameEngineClient;
 import com.flamingo.tictactoe.session.application.port.out.MoveGenerationStrategy;
 import com.flamingo.tictactoe.session.application.port.out.SessionRepository;
+import com.flamingo.tictactoe.session.application.port.out.SessionUpdatePublisher;
 import com.flamingo.tictactoe.session.domain.exception.SessionNotFoundException;
 import com.flamingo.tictactoe.session.domain.model.Cell;
 import com.flamingo.tictactoe.session.domain.model.Session;
@@ -37,6 +38,7 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
     private final MoveGenerationStrategy moveGenerationStrategy;
     private final BoardProperties boardProperties;
     private final TaskExecutor simulationTaskExecutor;
+    private final SessionUpdatePublisher sessionUpdatePublisher;
     private final long moveDelayMillis;
 
     public SessionService(SessionRepository sessionRepository,
@@ -44,12 +46,14 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
                            MoveGenerationStrategy moveGenerationStrategy,
                            BoardProperties boardProperties,
                            @Qualifier("simulationTaskExecutor") TaskExecutor simulationTaskExecutor,
+                           SessionUpdatePublisher sessionUpdatePublisher,
                            @Value("${simulation.move-delay-ms:500}") long moveDelayMillis) {
         this.sessionRepository = sessionRepository;
         this.gameEngineClient = gameEngineClient;
         this.moveGenerationStrategy = moveGenerationStrategy;
         this.boardProperties = boardProperties;
         this.simulationTaskExecutor = simulationTaskExecutor;
+        this.sessionUpdatePublisher = sessionUpdatePublisher;
         this.moveDelayMillis = moveDelayMillis;
     }
 
@@ -72,7 +76,8 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
      * session's current snapshot - it doesn't wait for the game to finish.
      * The loop that actually plays the game runs on simulationTaskExecutor,
      * so this call never blocks an HTTP request thread for the several
-     * seconds a full game can take. Poll GET /sessions/{id} to see progress.
+     * seconds a full game can take. Watch GET /sessions/{id}/stream (or
+     * poll GET /sessions/{id}) to see progress.
      */
     @Override
     public SessionSnapshot simulate(String sessionId) {
@@ -90,29 +95,37 @@ public class SessionService implements CreateSessionUseCase, SimulateGameUseCase
     private void runSimulation(Session session) {
         boolean inProgress = true;
         while (inProgress) {
+            SessionSnapshot snapshot;
             try {
                 // Each move locks the session on its own, not the whole
                 // loop, so a GET /sessions/{id} request only ever has to
                 // wait for one move to finish, not the whole game. That's
-                // what lets a polling UI see the board fill in move by
-                // move instead of only the final result.
+                // what lets a client see the board fill in move by move
+                // instead of only the final result.
                 synchronized (session) {
                     playNextMove(session);
                     sessionRepository.save(session);
                     inProgress = session.isInProgress();
+                    snapshot = session.toSnapshot();
                 }
             } catch (RuntimeException ex) {
                 // There's no HTTP request waiting right now - this runs in
-                // the background, not on a request thread - so polling and
-                // seeing FAILED is the only way a client finds out about
-                // this, same as it finds out about WIN/DRAW.
+                // the background, not on a request thread - so publishing
+                // (and a client polling GET) is the only way anyone finds
+                // out about this, same as they find out about WIN/DRAW.
                 log.error("Simulation failed for session {}", session.id(), ex);
                 synchronized (session) {
                     session.markFailed(ex.getMessage());
                     sessionRepository.save(session);
+                    snapshot = session.toSnapshot();
                 }
+                sessionUpdatePublisher.publish(snapshot);
                 return;
             }
+            // Published outside the lock: sending an update can be slow
+            // (a stalled network connection, a slow client), and that
+            // should never hold up the next move or a concurrent read.
+            sessionUpdatePublisher.publish(snapshot);
             if (inProgress) {
                 pauseBetweenMoves();
             }

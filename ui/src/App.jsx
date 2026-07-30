@@ -3,45 +3,69 @@ import Board from './components/Board'
 import StatusPanel from './components/StatusPanel'
 import MoveHistory from './components/MoveHistory'
 import ErrorBanner from './components/ErrorBanner'
-import { createSession, getSession, simulateSession } from './api/sessionApi'
+import RequestFlowDiagram from './components/RequestFlowDiagram'
+import { useRequestFlow } from './hooks/useRequestFlow'
+import { createSession, simulateSession, sessionStreamUrl } from './api/sessionApi'
 import './App.css'
-
-const POLL_INTERVAL_MS = 500
 
 export default function App() {
   const [session, setSession] = useState(null)
   const [isRunning, setIsRunning] = useState(false)
   const [error, setError] = useState('')
-  const pollHandleRef = useRef(null)
+  const [streamConnected, setStreamConnected] = useState(false)
+  const { current: currentFlowStep, emit: emitFlow } = useRequestFlow()
+  const eventSourceRef = useRef(null)
+  const moveCountRef = useRef(0)
+  const receivedFirstMessageRef = useRef(false)
 
-  const stopPolling = useCallback(() => {
-    if (pollHandleRef.current) {
-      clearInterval(pollHandleRef.current)
-      pollHandleRef.current = null
+  const stopStreaming = useCallback(() => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close()
+      eventSourceRef.current = null
     }
+    setStreamConnected(false)
   }, [])
 
-  useEffect(() => stopPolling, [stopPolling])
+  useEffect(() => stopStreaming, [stopStreaming])
 
-  const pollSessionUntilFinished = useCallback(
+  // Opens a live feed of the session instead of polling for it: the server
+  // pushes the current state right away, then again after every move, so
+  // this just has to listen instead of asking on a timer.
+  const streamSession = useCallback(
     (sessionId) => {
-      stopPolling()
-      pollHandleRef.current = setInterval(async () => {
-        try {
-          const latest = await getSession(sessionId)
-          setSession(latest)
-          if (latest.status !== 'IN_PROGRESS') {
-            stopPolling()
-            setIsRunning(false)
-          }
-        } catch (err) {
-          stopPolling()
-          setIsRunning(false)
-          setError(err.message)
+      stopStreaming()
+      moveCountRef.current = 0
+      receivedFirstMessageRef.current = false
+      const source = new EventSource(sessionStreamUrl(sessionId))
+      eventSourceRef.current = source
+
+      source.onmessage = (event) => {
+        const latest = JSON.parse(event.data)
+        setSession(latest)
+
+        if (!receivedFirstMessageRef.current) {
+          receivedFirstMessageRef.current = true
+          setStreamConnected(true)
+          emitFlow('stream-connected')
+        } else if (latest.moves.length > moveCountRef.current) {
+          emitFlow('move')
         }
-      }, POLL_INTERVAL_MS)
+        moveCountRef.current = latest.moves.length
+
+        if (latest.status !== 'IN_PROGRESS') {
+          emitFlow('finished')
+          stopStreaming()
+          setIsRunning(false)
+        }
+      }
+
+      source.onerror = () => {
+        stopStreaming()
+        setIsRunning(false)
+        setError('Lost connection while watching the game.')
+      }
     },
-    [stopPolling],
+    [stopStreaming, emitFlow],
   )
 
   const handleStart = useCallback(async () => {
@@ -49,21 +73,23 @@ export default function App() {
     setSession(null)
     setIsRunning(true)
     try {
+      emitFlow('create-session')
       const created = await createSession()
       setSession(created)
+      emitFlow('session-created')
       // simulate() starts the automated game on the server and returns
-      // right away - it doesn't wait for the game to finish. The poller
-      // above is what actually shows progress, by re-fetching the session
-      // as moves come in, so we don't need to wait for simulateSession()
-      // before updating the screen.
-      pollSessionUntilFinished(created.sessionId)
+      // right away - it doesn't wait for the game to finish. The stream
+      // opened above is what actually shows progress, so we don't need to
+      // wait for simulateSession() before updating the screen.
+      streamSession(created.sessionId)
+      emitFlow('simulate-request')
       await simulateSession(created.sessionId)
     } catch (err) {
-      stopPolling()
+      stopStreaming()
       setIsRunning(false)
       setError(err.message)
     }
-  }, [pollSessionUntilFinished, stopPolling])
+  }, [streamSession, stopStreaming, emitFlow])
 
   const moves = session?.moves ?? []
 
@@ -76,6 +102,8 @@ export default function App() {
       <button type="button" className="start-button" onClick={handleStart} disabled={isRunning}>
         {isRunning ? 'Simulating...' : 'Start Simulation'}
       </button>
+
+      <RequestFlowDiagram current={currentFlowStep} streamConnected={streamConnected} />
 
       <section className="game">
         <div className="game__board-column">

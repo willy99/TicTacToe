@@ -4,6 +4,16 @@ server:
 spring:
   application:
     name: game-engine-service
+  # For the JPA scaffold under infrastructure/persistence/jpa - not used by
+  # the actual running app yet, since GameRepository is still the in-memory one.
+  datasource:
+    url: jdbc:h2:mem:gameengine
+  jpa:
+    hibernate:
+      ddl-auto: update
+  h2:
+    console:
+      enabled: true
 
 game-engine:
   board:

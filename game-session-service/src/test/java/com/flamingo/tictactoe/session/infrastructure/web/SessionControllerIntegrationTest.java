@@ -1,5 +1,6 @@
 package com.flamingo.tictactoe.session.infrastructure.web;
 
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,9 +8,12 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,8 +30,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 /**
  * Full tests for the session service on its own: real Spring context,
@@ -159,6 +165,37 @@ class SessionControllerIntegrationTest {
         mockMvc.perform(get("/sessions/{sessionId}", sessionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status", is("FAILED")));
+    }
+
+    @Test
+    void streamingAnUnknownSessionReturns404() throws Exception {
+        mockMvc.perform(get("/sessions/{sessionId}/stream", "does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Session Not Found")));
+    }
+
+    @Test
+    void streamSendsTheCurrentStateAndClosesOnceTheGameIsOver() throws Exception {
+        when(gameEngineClient.initializeGame(anyString(), anyInt()))
+                .thenReturn(new EngineGameState(SessionStatus.IN_PROGRESS, null));
+        when(gameEngineClient.submitMove(anyString(), any(Symbol.class), anyInt(), anyInt()))
+                .thenReturn(new EngineGameState(SessionStatus.DRAW, null));
+
+        String sessionId = createSession();
+        // The stubbed executor above runs the simulation synchronously, so
+        // by the time this returns the session has already reached DRAW -
+        // meaning the stream should send that final state right away and
+        // close, instead of staying open waiting for more moves.
+        mockMvc.perform(post("/sessions/{sessionId}/simulate", sessionId));
+
+        MvcResult streamResult = mockMvc.perform(get("/sessions/{sessionId}/stream", sessionId))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(streamResult))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_EVENT_STREAM))
+                .andExpect(content().string(containsString("\"status\":\"DRAW\"")));
     }
 
     private String createSession() throws Exception {

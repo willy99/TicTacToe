@@ -1,0 +1,377 @@
+.flow {
+  margin-top: 2.25rem;
+  text-align: left;
+}
+
+.flow h2 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--roast);
+  margin-bottom: 0.75rem;
+}
+
+.flow__idle {
+  font-size: 0.85rem;
+  color: var(--roast);
+  margin-bottom: 0.9rem;
+}
+
+/* Mobile-first: everything in one column, in reading order (the two
+   repositories trail their owning service, as a supporting row rather than
+   a strict connector chain - see the min-width override below for how this
+   reflows into two rows on wider screens, with each repository aligned
+   directly under the service that owns it). */
+.flow__grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  row-gap: 0.6rem;
+  align-items: center;
+  justify-items: stretch;
+}
+
+/* The universal selector here (not `div`) keeps this at the same
+   specificity as the per-box grid-column rules below, so the desktop
+   media query's assignments can actually win the cascade instead of
+   this blanket rule always taking precedence regardless of viewport. */
+.flow__grid > * {
+  grid-column: 1;
+}
+
+/* Mobile reading order: each service is immediately followed by its own
+   repository, then the chain continues on to the next service - not all
+   repositories bunched up at the end. */
+.flow__grid-browser {
+  grid-row: 1;
+}
+.flow__grid-conn-h1 {
+  grid-row: 2;
+}
+.flow__grid-session {
+  grid-row: 3;
+}
+.flow__grid-conn-v1 {
+  grid-row: 4;
+}
+.flow__grid-session-repo {
+  grid-row: 5;
+}
+.flow__grid-conn-h2 {
+  grid-row: 6;
+}
+.flow__grid-engine {
+  grid-row: 7;
+}
+.flow__grid-conn-v2 {
+  grid-row: 8;
+}
+.flow__grid-engine-repo {
+  grid-row: 9;
+}
+
+@media (min-width: 641px) {
+  .flow__grid {
+    grid-template-columns: 1fr 3.25rem 1fr 3.25rem 1fr;
+    grid-template-rows: auto 1.5rem auto;
+    row-gap: 0;
+  }
+
+  .flow__grid-browser {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .flow__grid-conn-h1 {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .flow__grid-session {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .flow__grid-conn-h2 {
+    grid-column: 4;
+    grid-row: 1;
+  }
+  .flow__grid-engine {
+    grid-column: 5;
+    grid-row: 1;
+  }
+  .flow__grid-conn-v1 {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .flow__grid-session-repo {
+    grid-column: 3;
+    grid-row: 3;
+  }
+  .flow__grid-conn-v2 {
+    grid-column: 5;
+    grid-row: 2;
+    justify-self: center;
+  }
+  .flow__grid-engine-repo {
+    grid-column: 5;
+    grid-row: 3;
+  }
+}
+
+.flow__node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.9rem 0.6rem;
+  text-align: center;
+  box-shadow: 0 12px 24px -18px rgba(59, 42, 32, 0.45);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* The two repositories are supporting cast, not peers of the three
+   services - smaller and a touch duller until something actually touches
+   them. */
+.flow__node--compact {
+  background: var(--paper-deep);
+  padding: 0.55rem 0.6rem;
+}
+
+.flow__node--compact .flow__node-title {
+  font-size: 0.72rem;
+}
+
+.flow__node--active {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px rgba(184, 134, 59, 0.22), 0 12px 24px -16px rgba(59, 42, 32, 0.5);
+  transform: translateY(-2px);
+}
+
+.flow__node-icon {
+  color: var(--bark);
+  display: flex;
+}
+
+.flow__node--compact .flow__node-icon {
+  color: var(--roast);
+}
+
+.flow__node--active .flow__node-icon {
+  color: var(--amber);
+}
+
+.flow__node-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.flow__node-subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.68rem;
+  color: var(--roast);
+}
+
+/* Each connector is a thin line between two nodes; pulses are little dots
+   that travel across it, and a label fades in near the middle so you can
+   read what's actually being sent. Vertical (session/engine -> their
+   repository) is the default geometry here since it's mobile-first;
+   horizontal connectors (browser <-> session <-> engine) opt out of that on
+   wider screens where the three main services sit in a row instead of a
+   column - see the min-width override below. */
+.flow__connector {
+  position: relative;
+  justify-self: center;
+  width: 2px;
+  height: 1.6rem;
+}
+
+.flow__connector-line {
+  display: block;
+  width: 2px;
+  height: 100%;
+  background: var(--line);
+}
+
+.flow__connector--connected .flow__connector-line {
+  background: repeating-linear-gradient(180deg, var(--amber) 0 6px, transparent 6px 12px);
+  animation: connector-breathe 1.8s ease-in-out infinite;
+}
+
+.flow__pulse {
+  position: absolute;
+  top: 0%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  animation: flow-forward-y 0.6s ease-in-out both;
+  white-space: nowrap;
+}
+
+.flow__pulse--backward {
+  animation-name: flow-backward-y;
+}
+
+.flow__pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--bark);
+  box-shadow: 0 0 0 4px rgba(91, 58, 41, 0.18);
+}
+
+.flow__pulse--backward .flow__pulse-dot {
+  background: var(--cinnamon);
+  box-shadow: 0 0 0 4px rgba(181, 101, 29, 0.18);
+}
+
+.flow__pulse-label {
+  position: absolute;
+  left: 1.1rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.62rem;
+  color: var(--espresso);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  opacity: 0;
+  animation: flow-label-fade 0.6s ease-in-out both;
+}
+
+@keyframes flow-forward-y {
+  0% {
+    top: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-backward-y {
+  0% {
+    top: 100%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-label-fade {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+}
+
+@keyframes connector-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* Browser<->Session and Session<->Engine only run horizontally once the
+   three main services sit in a row - which is also when the diagram is
+   wide enough that the two vertical repository connectors (--connector-v1
+   and --v2, styled above) need to stay put. */
+@media (min-width: 641px) {
+  .flow__connector--horizontal {
+    width: 3.25rem;
+    height: 2px;
+  }
+
+  .flow__connector--horizontal .flow__connector-line {
+    width: 100%;
+    height: 2px;
+  }
+
+  .flow__connector--horizontal.flow__connector--connected .flow__connector-line {
+    background: repeating-linear-gradient(90deg, var(--amber) 0 6px, transparent 6px 12px);
+  }
+
+  .flow__connector--horizontal .flow__pulse {
+    top: 50%;
+    left: 0%;
+    animation-name: flow-forward;
+  }
+
+  .flow__connector--horizontal .flow__pulse--backward {
+    animation-name: flow-backward;
+  }
+
+  .flow__connector--horizontal .flow__pulse-label {
+    left: auto;
+    top: -1.35rem;
+  }
+}
+
+@keyframes flow-forward {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-backward {
+  0% {
+    left: 100%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    left: 0%;
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow__pulse,
+  .flow__connector--connected .flow__connector-line {
+    animation: none;
+  }
+}

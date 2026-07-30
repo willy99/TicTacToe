@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: game-session-service
+  # For the JPA scaffold under infrastructure/persistence/jpa - not used by
+  # the actual running app yet, since SessionRepository is still the
+  # in-memory one.
+  datasource:
+    url: jdbc:h2:mem:gamesession
+  jpa:
+    hibernate:
+      ddl-auto: update
+  h2:
+    console:
+      enabled: true
 
 game-engine:
   base-url: http://localhost:8081
@@ -15,9 +26,12 @@ game:
     size: 3
 
 simulation:
-  # Pause between automated moves so a polling UI can visibly observe the
-  # game progressing move by move. Set to 0 to play out instantly.
-  move-delay-ms: 500
+  # Pause between automated moves so the UI can visibly observe the game
+  # progressing move by move - including the request-flow diagram, which
+  # needs a couple of seconds per move to walk through browser -> session ->
+  # engine -> repositories -> back to the browser at a readable pace. Set to
+  # 0 to play out instantly.
+  move-delay-ms: 2000
 
 ui:
   allowed-origin: http://localhost:5173

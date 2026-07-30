@@ -6,17 +6,19 @@ import com.flamingo.tictactoe.session.application.port.in.SimulateGameUseCase;
 import com.flamingo.tictactoe.session.domain.model.SessionSnapshot;
 import com.flamingo.tictactoe.session.infrastructure.web.dto.SessionResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * The HTTP endpoints for game sessions. No simulation logic here - it
  * just turns requests into calls to the service above, and turns the
- * results back into JSON.
+ * results back into JSON (or, for /stream, into a live event feed).
  */
 @RestController
 @RequestMapping("/sessions")
@@ -26,15 +28,18 @@ public class SessionController {
     private final SimulateGameUseCase simulateGameUseCase;
     private final GetSessionUseCase getSessionUseCase;
     private final SessionMapper sessionMapper;
+    private final SseSessionUpdatePublisher sseSessionUpdatePublisher;
 
     public SessionController(CreateSessionUseCase createSessionUseCase,
                               SimulateGameUseCase simulateGameUseCase,
                               GetSessionUseCase getSessionUseCase,
-                              SessionMapper sessionMapper) {
+                              SessionMapper sessionMapper,
+                              SseSessionUpdatePublisher sseSessionUpdatePublisher) {
         this.createSessionUseCase = createSessionUseCase;
         this.simulateGameUseCase = simulateGameUseCase;
         this.getSessionUseCase = getSessionUseCase;
         this.sessionMapper = sessionMapper;
+        this.sseSessionUpdatePublisher = sseSessionUpdatePublisher;
     }
 
     @PostMapping
@@ -58,5 +63,17 @@ public class SessionController {
     public ResponseEntity<SessionResponse> getSession(@PathVariable("sessionId") String sessionId) {
         SessionSnapshot snapshot = getSessionUseCase.getSession(sessionId);
         return ResponseEntity.ok(sessionMapper.toResponse(snapshot));
+    }
+
+    /**
+     * A live feed of a session's state: sends the current state right
+     * away, then again every time a move is played, until the game ends.
+     * This is what lets the UI update in real time instead of polling
+     * GET /sessions/{sessionId} on a timer.
+     */
+    @GetMapping(path = "/{sessionId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter stream(@PathVariable("sessionId") String sessionId) {
+        SessionSnapshot snapshot = getSessionUseCase.getSession(sessionId);
+        return sseSessionUpdatePublisher.subscribe(sessionId, snapshot);
     }
 }
