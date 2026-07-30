@@ -8,7 +8,7 @@ A Tic Tac Toe game played automatically by two microservices, coordinated over R
 
 ## Architecture
 
-Each backend service follows **Clean/Hexagonal Architecture** with three layers, and the dependency rule is enforced strictly inward (infrastructure depends on application depends on domain - never the reverse):
+Backend services have three layers:
 
 ```
 domain/          business rules, entities, value objects, exceptions.
@@ -123,6 +123,9 @@ Swagger UI is available at `http://localhost:8081/swagger-ui.html` and `http://l
 | `GET` | `/sessions/{sessionId}` | Current status (`IN_PROGRESS`/`WIN`/`DRAW`/`FAILED`), winner, board size, and full move history |
 | `GET` | `/sessions/{sessionId}/stream` | Server-Sent Events feed: sends the current state right away, then again after every move, until the game ends |
 
+## Workflow visual:
+![](/doc/simulate_request_flow.svg)
+
 ## Testing
 
 ```bash
@@ -140,12 +143,8 @@ What's covered:
 - **`EndToEndSimulationTest`** - boots a real `game-engine-service` instance alongside `game-session-service` under test and plays a full automated game across genuine HTTP calls between the two, verifying the actual cross-service contract (not mocks).
 - **`GameJpaRepositoryTest` / `SessionJpaRepositoryTest`** (`@DataJpaTest`) - prove the JPA scaffold (see below) actually saves and loads from a real H2 database, not just code that looks right.
 
-The UI has no automated test suite (out of scope), but `npm run build` and `npm run lint` both pass cleanly.
+Run `npm run build` and `npm run lint` both for UI testing
 
-## Persistence scaffold (not wired in)
+## Persistence skeleton
 
-Both services have `spring-boot-starter-data-jpa` and H2 on the classpath, plus a `GameEntity`/`SessionEntity` and a Spring Data `JpaRepository` for each, under `infrastructure/persistence/jpa`. This is only a sketch of the next step, not a working feature: `GameRepository`/`SessionRepository` are still backed by the in-memory adapters, the entities don't yet capture the board cells or move history (just the summary fields), and nothing wires a JPA-backed adapter into the ports. It exists to show the direction is real and buildable - the `@DataJpaTest`s above prove the entities and repositories actually work against H2 - without taking on the larger job of mapping the full domain aggregates to a schema.
-
-## What was intentionally left out (optional enhancements)
-
-Per the assignment, two optional enhancements are still fully open: distributed/optimistic concurrency beyond per-aggregate locking (this covers a single instance of each service; multiple instances behind a load balancer would need database-backed locking instead), and service discovery / API gateway (Eureka, Spring Cloud Gateway) - neither was worth the added infrastructure for a two-service demo of this size. Real-time updates now use Server-Sent Events (see above), and persistent storage has a scaffold (see above) rather than being fully wired in. The architecture's use of ports and interfaces means all of this could be extended later without touching domain or application code.
+Both services have `spring-boot-starter-data-jpa` and H2 on the classpath, plus a `GameEntity`/`SessionEntity` and a Spring Data `JpaRepository` for each, under `infrastructure/persistence/jpa`. This is only a sketch of the next step: `GameRepository`/`SessionRepository` are still backed by the in-memory adapters, the entities don't yet capture the board cells or move history (just the summary fields), and nothing wires a JPA-backed adapter into the ports.
